@@ -522,7 +522,7 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
           const sidebar = document.querySelector('.sidebar') as HTMLElement;
           const logoutBtn = document.querySelector('#btn-logout') as HTMLElement;
           const fmtTextarea = document.querySelector('#editor-format-textarea') as HTMLElement | null;
-          const hintRow = document.querySelector('.format-hint-row') as HTMLElement | null;
+          const hintRow = document.querySelector('.review-draft-card > .compact-save-bar') as HTMLElement | null;
           const approvalCard = document.querySelector('#card-approval') as HTMLElement | null;
           const imgs = allImgs.map((img) => ({
             src: img.getAttribute('src'),
