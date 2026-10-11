@@ -95,6 +95,59 @@ export interface StoryChecks {
   attributionVerified: boolean;
 }
 
+export type AIProviderId = 'gemini' | 'openai' | 'anthropic' | 'openrouter';
+
+export interface AIModelPricingDto {
+  inputPerMillionUsd: number;
+  outputPerMillionUsd: number;
+  isFreeTier: boolean;
+  pricingNote: string;
+  verifiedAt: string;
+}
+
+export interface AIModelCatalogItemDto {
+  id: string;
+  provider: AIProviderId;
+  label: string;
+  tier: 'free' | 'paid';
+  pricing: AIModelPricingDto;
+  recommendedFor: string;
+  available: boolean;
+}
+
+export interface AIProviderStatusDto {
+  provider: AIProviderId;
+  label: string;
+  configured: boolean;
+  models: AIModelCatalogItemDto[];
+}
+
+export type AttributionConfidence = 'official' | 'attributed' | 'unattributed';
+
+export interface AttributionFlagDto {
+  claim: string;
+  attributedTo: string | null;
+  confidence: AttributionConfidence;
+}
+
+export interface AIUsageMetricsDto {
+  provider: string;
+  model: string;
+  inputTokens: number;
+  outputTokens: number;
+  totalTokens: number;
+  estimatedCostUsd: number;
+  latencyMs: number;
+}
+
+export interface StoryAIMetadataDto {
+  usage?: AIUsageMetricsDto;
+  editorialNotes?: string;
+  attributionFlags?: AttributionFlagDto[];
+  numberWarnings?: string[];
+  generatedAt?: string;
+}
+
 export interface StoryDto {
   id: string;
   status: string;
@@ -119,6 +172,7 @@ export interface StoryDto {
   updatedAt: string;
   approvedAt: string | null;
   publishedAt: string | null;
+  aiMetadata?: StoryAIMetadataDto;
 }
 
 export interface StorySummaryDto {
@@ -164,6 +218,46 @@ export interface StoryPatchBody {
   blockerReason?: string;
 }
 
+export interface StoryExtractRequestDto {
+  provider?: string;
+  model?: string;
+  overwriteExisting?: boolean;
+}
+
+export interface StoryExtractResponseDto {
+  story: StoryDto;
+  usage: AIUsageMetricsDto;
+  editorialNotes: string;
+  attributionFlags: AttributionFlagDto[];
+  numberWarnings: string[];
+  preservedManualFormats?: FormatKey[];
+}
+
+export type AIErrorClass =
+  | 'not_configured'
+  | 'auth_error'
+  | 'quota_exceeded'
+  | 'rate_limited'
+  | 'timeout'
+  | 'invalid_response'
+  | 'provider_down';
+
+export interface TestModelRequestDto {
+  provider?: string;
+  model?: string;
+}
+
+export interface TestModelResponseDto {
+  ok: boolean;
+  provider: string;
+  model: string;
+  configured: boolean;
+  connected: boolean;
+  latencyMs: number;
+  message: string;
+  errorClass?: AIErrorClass;
+}
+
 export interface SettingsDto {
   stationName: string;
   editorialStyle: string;
@@ -172,6 +266,7 @@ export interface SettingsDto {
   modelName: string;
   aiConfigured: boolean;
   updatedAt: string;
+  providers?: AIProviderStatusDto[];
 }
 
 export interface SettingsPutBody {

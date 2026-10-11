@@ -9,6 +9,11 @@ export interface Env {
   ALLOWED_ORIGIN: string;
   /** Optional: Cloudflare ratelimit binding for login (Specs §12.4). Absent locally unless configured. */
   LOGIN_LIMITER?: RateLimiter;
-  /** Reserved for the AI pipeline (not used in this slice). Must never reach responses or the client bundle. */
+  /** Generic AI secret binding / security canary. Must never reach responses or the client bundle. */
   AI_API_KEY?: string;
+  /** Provider-specific secrets stored exclusively in Cloudflare Worker Secrets. */
+  GEMINI_API_KEY?: string;
+  OPENAI_API_KEY?: string;
+  ANTHROPIC_API_KEY?: string;
+  OPENROUTER_API_KEY?: string;
 }
