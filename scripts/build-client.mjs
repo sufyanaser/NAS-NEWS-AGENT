@@ -23,7 +23,10 @@ await build({
   define: { 'process.env.NODE_ENV': '"production"' },
 });
 
-for (const f of ['index.html', 'styles.css', '_headers']) {
-  await cp(resolve(root, 'src/client', f), resolve(out, f));
+import { readdirSync } from 'node:fs';
+
+const staticFiles = readdirSync(resolve(root, 'src/client')).filter((f) => !f.endsWith('.ts'));
+for (const f of staticFiles) {
+  await cp(resolve(root, 'src/client', f), resolve(out, f), { recursive: true });
 }
 console.log('client built ->', out);

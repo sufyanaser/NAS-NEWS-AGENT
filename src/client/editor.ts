@@ -64,7 +64,13 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   let readOnly = false;
 
   // ---- static skeleton -------------------------------------------------------------------------
-  const title = h('h2', { class: 'card-title' }, 'إدخال مادة خبرية');
+  const titleText = h('h2', { class: 'card-title' }, 'إدخال مادة خبرية');
+  const title = h(
+    'div',
+    { class: 'title-with-icon' },
+    h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'section-icon', width: '24', height: '24' }),
+    titleText,
+  );
   const statusBadge = h('span', { class: 'badge', hidden: true });
   const subtitle = h('p', { class: 'card-sub' }, 'الصق النص الأصلي وبيانات المصدر. تُحفظ المسودة تلقائياً على الخادم ويمكن استعادتها لاحقاً.');
 
@@ -316,7 +322,23 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     }
     if (disposed) return;
     clear(draftsHost);
-    draftsHost.append(h('div', { class: 'card-head' }, h('div', {}, h('h2', { class: 'card-title' }, 'المسودات المحفوظة'), h('p', { class: 'card-sub' }, 'افتح مسودة لمتابعة التحرير من حيث توقفت.'))));
+    draftsHost.append(
+      h(
+        'div',
+        { class: 'card-head' },
+        h(
+          'div',
+          {},
+          h(
+            'div',
+            { class: 'title-with-icon' },
+            h('img', { src: '/assets/icons/nav-drafts.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
+            h('h2', { class: 'card-title' }, 'المسودات المحفوظة'),
+          ),
+          h('p', { class: 'card-sub' }, 'افتح مسودة لمتابعة التحرير من حيث توقفت.'),
+        ),
+      ),
+    );
     const others = stories.filter((s) => s.id !== id);
     if (failed) {
       draftsHost.append(h('div', { class: 'alert alert-warn' }, 'تعذّر تحميل قائمة المسودات الآن.'));
@@ -361,7 +383,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     updateCounter();
     statusBadge.textContent = s.status;
     statusBadge.hidden = false;
-    title.textContent = 'متابعة المسودة';
+    titleText.textContent = 'متابعة المسودة';
     if (!EDITABLE_STATUSES.includes(s.status)) {
       readOnly = true;
       lockedNote.hidden = false;

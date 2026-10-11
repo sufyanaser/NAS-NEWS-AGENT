@@ -33,16 +33,7 @@ async function navigate(path: string, replace = false): Promise<void> {
   await render();
 }
 
-function link(href: string, text: string, className: string): HTMLAnchorElement {
-  return h('a', {
-    href,
-    class: className,
-    onClick: (e: Event) => {
-      e.preventDefault();
-      void navigate(href);
-    },
-  }, text);
-}
+
 
 function renderLogin(): void {
   disposeEditor();
@@ -99,7 +90,14 @@ function renderLogin(): void {
       h(
         'div',
         { class: 'login-box' },
-        h('div', { class: 'login-brand' }, h('span', { class: 'login-badge' }, 'NAS FM • NEWSROOM'), h('h1', {}, 'دخول المحرر'), h('p', {}, 'منصة التحرير الإخباري الداخلية — مستخدم واحد')),
+        h(
+          'div',
+          { class: 'login-brand' },
+          h('img', { src: '/icon-64.png', alt: 'NAS FM Logo', class: 'login-logo', width: '48', height: '48' }),
+          h('span', { class: 'login-badge' }, 'NAS FM • NEWSROOM'),
+          h('h1', {}, 'دخول المحرر'),
+          h('p', {}, 'منصة التحرير الإخباري الداخلية — مستخدم واحد'),
+        ),
         h('div', { class: 'card' }, form),
       ),
     ),
@@ -131,8 +129,25 @@ function renderShell(active: 'new', content: (host: HTMLElement) => void): void 
       h(
         'aside',
         { class: 'sidebar', 'aria-label': 'القائمة الرئيسية' },
-        h('div', { class: 'brand' }, 'NAS Newsroom', h('small', {}, 'غرفة الأخبار')),
-        link('/stories/new', 'خبر جديد', `nav-item${active === 'new' ? ' active' : ''}`),
+        h(
+          'div',
+          { class: 'brand' },
+          h('div', { class: 'brand-header' }, h('img', { src: '/icon-32.png', alt: 'Logo', class: 'brand-icon', width: '24', height: '24' }), h('span', {}, 'NAS Newsroom')),
+          h('small', {}, 'غرفة الأخبار'),
+        ),
+        h(
+          'a',
+          {
+            href: '/stories/new',
+            class: `nav-item${active === 'new' ? ' active' : ''}`,
+            onClick: (e: Event) => {
+              e.preventDefault();
+              void navigate('/stories/new');
+            },
+          },
+          h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'nav-icon', width: '20', height: '20' }),
+          h('span', {}, 'خبر جديد'),
+        ),
         h('div', { class: 'spacer' }),
         h('div', { class: 'user-line', id: 'user-email' }, userEmail),
         h('button', { type: 'button', class: 'nav-item', id: 'btn-logout', onClick: () => void logout() }, 'تسجيل الخروج'),
