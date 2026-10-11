@@ -565,3 +565,194 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
     }
   });
 });
+
+test.describe('multi-provider AI settings, connection test, and editorial AI generation', () => {
+  test('AI settings catalog, provider switching, pricing note, and connection test', async ({ page }) => {
+    const errors = collectErrors(page);
+    await login(page);
+    await page.locator('#nav-settings').click();
+    await expect(page).toHaveURL(/\/settings$/);
+
+    // 1. Verify #setting-model-provider contains gemini, openai, anthropic, and openrouter
+    const providerValues = await page
+      .locator('#setting-model-provider option')
+      .evaluateAll((opts) => opts.map((o) => (o as HTMLOptionElement).value));
+    expect(providerValues).toEqual(expect.arrayContaining(['gemini', 'openai', 'anthropic', 'openrouter']));
+
+    // 2. Select gemini and verify model and pricing note
+    await page.locator('#setting-model-provider').selectOption('gemini');
+    await expect(page.locator('#setting-model-name')).toHaveValue('gemini-2.5-flash');
+    await expect(page.locator('#setting-model-pricing-note')).toBeVisible();
+    await expect(page.locator('#setting-model-pricing-note')).toContainText('Google AI Studio');
+    await expect(page.locator('#setting-model-pricing-note')).toContainText('Free Tier');
+    await expect(page.locator('#setting-model-pricing-note')).toContainText('مجاني');
+
+    // 3. Select openrouter and verify model options update
+    await page.locator('#setting-model-provider').selectOption('openrouter');
+    await expect(page.locator('#setting-model-name')).toHaveValue('meta-llama/llama-3.3-70b-instruct:free');
+    await expect(page.locator('#setting-model-pricing-note')).toContainText('OpenRouter');
+
+    // Switch back to gemini for connection testing
+    await page.locator('#setting-model-provider').selectOption('gemini');
+
+    // 4. Click #btn-test-model against local unconfigured server -> shows non-configured feedback
+    await page.locator('#btn-test-model').click();
+    await expect(page.locator('#settings-feedback')).toBeVisible();
+    await expect(page.locator('#settings-feedback')).not.toBeEmpty();
+
+    // 5. Mock /api/settings/test-model once to return connected response with latencyMs: 142
+    await page.route(
+      '**/api/settings/test-model',
+      (route) =>
+        route.fulfill({
+          status: 200,
+          contentType: 'application/json',
+          body: JSON.stringify({
+            ok: true,
+            provider: 'gemini',
+            model: 'gemini-2.5-flash',
+            configured: true,
+            connected: true,
+            latencyMs: 142,
+            message: 'تم الاتصال بنجاح بنموذج gemini-2.5-flash.',
+          }),
+        }),
+      { times: 1 },
+    );
+
+    await page.locator('#btn-test-model').click();
+    await expect(page.locator('#settings-feedback')).toBeVisible();
+    await expect(page.locator('#settings-feedback')).toContainText('142ms');
+    await expect(page.locator('#setting-ai-status')).toContainText('Connected');
+
+    expect(errors.filter((e) => !e.includes('401'))).toEqual([]);
+  });
+
+  test('Editorial AI generation, overwrite protection, and manual fallback in Review & Edit', async ({ page }) => {
+    const errors = collectErrors(page);
+    await login(page);
+
+    const sourceBody =
+      'أعلنت وكالة الأنباء العراقية اليوم في بيان رسمي عن افتتاح مركز جديد للتحول الرقمي في بغداد لخدمة المؤسسات الإعلامية وتطوير غرف الأخبار الحديثة.';
+
+    await page.locator('#f-source-name').fill('وكالة الأنباء العراقية');
+    await page.locator('#f-category').selectOption('محلي');
+    await page.locator('#f-source-lang').selectOption('العربية');
+    await page.locator('#f-source-text').fill(sourceBody);
+
+    await expect(page.locator('#btn-proceed-review')).toBeVisible();
+    await page.locator('#btn-proceed-review').click();
+    await expect(page).toHaveURL(new RegExp(`/stories/${UUID}/review$`));
+    const storyId = page.url().split('/')[4] ?? '';
+
+    // 1. Graceful Manual Fallback when AI is not configured (503 not_configured)
+    const manualHeadline = 'عنوان يدوي أعده المحرر قبل تجربة التوليد الآلي';
+    await page.locator('#editor-headline-input').fill(manualHeadline);
+
+    await page.locator('#btn-ai-generate').click();
+    await expect(page.locator('#ai-overwrite-confirm-box')).toBeVisible();
+    await page.locator('#btn-ai-fill-empty').click();
+
+    await expect(page.locator('#ai-insights-box')).toBeVisible();
+    await expect(page.locator('#ai-insights-box')).toContainText('التحرير اليدوي');
+    await expect(page.locator('#editor-headline-input')).toHaveValue(manualHeadline);
+
+    // 2. AI Generation + Overwrite Confirmation + Usage & Warnings Display
+    const aiHeadline = 'افتتاح مركز للتحول الرقمي في بغداد لخدمة المؤسسات الإعلامية';
+    const aiRadioDraft = 'أعلنت وكالة الأنباء العراقية اليوم افتتاح مركز جديد للتحول الرقمي في بغداد لخدمة المؤسسات الإعلامية.';
+    const nowIso = new Date().toISOString();
+
+    await page.route('**/api/stories/*/extract', (route) =>
+      route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          story: {
+            id: storyId,
+            status: 'قيد المراجعة',
+            sourceUrl: '',
+            sourceName: 'وكالة الأنباء العراقية',
+            publishDate: '2026-10-11',
+            category: 'محلي',
+            sourceLang: 'العربية',
+            sourceText: sourceBody,
+            importFailed: false,
+            importMessage: '',
+            hasBlocker: false,
+            blockerReason: '',
+            headline: aiHeadline,
+            urgentEnabled: false,
+            selectedFormats: ['radio', 'web', 'facebook'],
+            formats: {
+              radio: aiRadioDraft,
+              web: 'خبر موقع: افتتاح مركز للتحول الرقمي في بغداد.',
+              facebook: 'منشور: افتتاح مركز للتحول الرقمي في بغداد.',
+              urgent: '',
+            },
+            facts: [
+              {
+                label: 'الجهة المعلنة',
+                value: 'وكالة الأنباء العراقية',
+                status: 'وارد في المصدر',
+                type: 'sourced',
+              },
+            ],
+            checks: {
+              factsVerified: false,
+              attributionVerified: false,
+            },
+            excludeReason: '',
+            createdAt: nowIso,
+            updatedAt: nowIso,
+            approvedAt: null,
+            publishedAt: null,
+            aiMetadata: {
+              usage: {
+                provider: 'gemini',
+                model: 'gemini-2.5-flash',
+                inputTokens: 320,
+                outputTokens: 210,
+                totalTokens: 530,
+                estimatedCostUsd: 0.000174,
+                latencyMs: 680,
+              },
+              editorialNotes: 'تمت الصياغة وفق أسلوب إذاعة ناس.',
+              attributionFlags: [],
+              numberWarnings: ['تحذير مطابقة الأرقام: الرقم (99) ظهر في النص المولد ولكنه غير موجود صراحةً في نص المصدر.'],
+              generatedAt: nowIso,
+            },
+          },
+          usage: {
+            provider: 'gemini',
+            model: 'gemini-2.5-flash',
+            inputTokens: 320,
+            outputTokens: 210,
+            totalTokens: 530,
+            estimatedCostUsd: 0.000174,
+            latencyMs: 680,
+          },
+          editorialNotes: 'تمت الصياغة وفق أسلوب إذاعة ناس.',
+          attributionFlags: [],
+          numberWarnings: ['تحذير مطابقة الأرقام: الرقم (99) ظهر في النص المولد ولكنه غير موجود صراحةً في نص المصدر.'],
+        }),
+      }),
+    );
+
+    await page.locator('#btn-ai-generate').click();
+    await expect(page.locator('#ai-overwrite-confirm-box')).toBeVisible();
+    await page.locator('#btn-ai-overwrite-all').click();
+
+    await expect(page.locator('#editor-headline-input')).toHaveValue(aiHeadline);
+    await expect(page.locator('#editor-format-textarea')).toHaveValue(aiRadioDraft);
+    await expect(page.locator('#ai-disconnected-notice')).toContainText('gemini-2.5-flash');
+    await expect(page.locator('#ai-disconnected-notice')).toContainText('530 توكن');
+    await expect(page.locator('#ai-insights-box')).toBeVisible();
+    await expect(page.locator('#ai-insights-box')).toContainText('تمت الصياغة وفق أسلوب إذاعة ناس.');
+    await expect(page.locator('#ai-insights-box')).toContainText(
+      'تحذير مطابقة الأرقام: الرقم (99) ظهر في النص المولد ولكنه غير موجود صراحةً في نص المصدر.',
+    );
+
+    expect(errors.filter((e) => !e.includes('401') && !e.includes('503'))).toEqual([]);
+  });
+});
+
