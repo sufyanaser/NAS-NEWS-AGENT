@@ -22,5 +22,21 @@
   ],
   "vars": {
     "ALLOWED_ORIGIN": "https://nr.nasfm.info"
+  },
+  "env": {
+    "staging": {
+      "name": "nas-newsroom-staging",
+      "d1_databases": [
+        {
+          "binding": "DB",
+          "database_name": "nas-newsroom-staging-db",
+          "database_id": "16f339cc-4038-44a5-a522-a933dc2ba07b",
+          "migrations_dir": "migrations"
+        }
+      ],
+      "vars": {
+        "ALLOWED_ORIGIN": "https://nas-newsroom-staging.nasfm98-7.workers.dev"
+      }
+    }
   }
 }
