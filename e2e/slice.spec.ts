@@ -521,6 +521,9 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
           const doc = document.documentElement;
           const sidebar = document.querySelector('.sidebar') as HTMLElement;
           const logoutBtn = document.querySelector('#btn-logout') as HTMLElement;
+          const fmtTextarea = document.querySelector('#editor-format-textarea') as HTMLElement | null;
+          const hintRow = document.querySelector('.format-hint-row') as HTMLElement | null;
+          const approvalCard = document.querySelector('#card-approval') as HTMLElement | null;
           const imgs = allImgs.map((img) => ({
             src: img.getAttribute('src'),
             loaded: img.complete && img.naturalWidth > 0,
@@ -533,6 +536,9 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
             sidebarScrollH: sidebar.scrollHeight,
             sidebarClientH: sidebar.clientHeight,
             logoutBottom: logoutBtn.getBoundingClientRect().bottom,
+            textareaBottom: fmtTextarea ? fmtTextarea.getBoundingClientRect().bottom : 0,
+            hintRowTop: hintRow ? hintRow.getBoundingClientRect().top : 9999,
+            approvalBottom: approvalCard ? approvalCard.getBoundingClientRect().bottom : 0,
             brokenImgs: imgs.filter((i) => !i.loaded),
           };
         });
@@ -540,6 +546,8 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
         expect(metrics.docScrollW, `Desktop ${size.width}x${size.height} ${route} horizontal scroll`).toBeLessThanOrEqual(metrics.winW);
         expect(metrics.sidebarScrollH, `Desktop ${size.width}x${size.height} ${route} sidebar scroll`).toBeLessThanOrEqual(metrics.sidebarClientH);
         expect(metrics.logoutBottom, `Desktop ${size.width}x${size.height} ${route} #btn-logout inside viewport`).toBeLessThanOrEqual(metrics.winH);
+        expect(metrics.textareaBottom, `Desktop ${size.width}x${size.height} ${route} textarea no overlap with hint row`).toBeLessThanOrEqual(metrics.hintRowTop + 1);
+        expect(metrics.approvalBottom, `Desktop ${size.width}x${size.height} ${route} #card-approval inside viewport`).toBeLessThanOrEqual(metrics.winH);
         expect(metrics.brokenImgs, `Desktop ${size.width}x${size.height} ${route} broken images`).toEqual([]);
       }
     }
