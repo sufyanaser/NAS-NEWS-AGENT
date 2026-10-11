@@ -25,7 +25,21 @@ sh('node', ['scripts/seed-user.mjs', '--persist-to', state], { NAS_EDITOR_EMAIL:
 
 const dev = spawn(
   'npx',
-  ['wrangler', 'dev', '--local', '--port', port, '--persist-to', state, '--var', `ALLOWED_ORIGIN:http://localhost:${port}`],
+  [
+    'wrangler',
+    'dev',
+    '--local',
+    '--port',
+    port,
+    '--local-upstream',
+    `localhost:${port}`,
+    '--upstream-protocol',
+    'http',
+    '--persist-to',
+    state,
+    '--var',
+    `ALLOWED_ORIGIN:http://localhost:${port}`,
+  ],
   { cwd: root, stdio: 'inherit', shell: true },
 );
 const stop = () => {

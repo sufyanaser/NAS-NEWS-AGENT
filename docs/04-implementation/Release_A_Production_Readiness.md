@@ -1,24 +1,26 @@
-# NAS Newsroom — Release A Production Readiness Report (`https://nr.nasfm.info`)
+# NAS Newsroom — Release A Production Readiness & Live Deployment Report (`https://nr.nasfm.info`)
 
 **Document Owner**: Agent 1 (`agent-1-ui-prod-readiness`)  
 **Date**: 2026-10-11  
-**Branch Verified**: `develop` (Commit `be0cfd8`)  
-**Staging Environment (Live)**: `https://nas-newsroom-staging.nasfm98-7.workers.dev`  
-**Approved Production Target**: `https://nr.nasfm.info` (Not yet deployed — awaiting final user authorization per `CLAUDE.md` Rules 5 & 8)
+**Release Status**: **DEPLOYED & VERIFIED LIVE ON PRODUCTION (`https://nr.nasfm.info`)**  
+**Production Branch (`main`) Commit**: `e3573cd8cc22383da056c2bb47f8b9f27dfb2ab5` (Fast-forwarded Manual Newsroom baseline `be0cfd8` + production config `30acd61`)  
+**Production Worker**: `nas-newsroom` (Active Version ID: `1976b85a-6a4c-4c57-951e-0c1757dec41c`)  
+**Production D1 Database**: `nas-newsroom-db` (UUID: `afb6589e-0630-44db-9dae-0a6d2015b28f`, Region: `EEUR`)  
+**Staging Environment (Live)**: `https://nas-newsroom-staging.nasfm98-7.workers.dev`
 
 ---
 
 ## 1. Executive Summary
 
-This report certifies that **Release A (Manual Editorial Newsroom Workstation)** has passed all 15 UI/UX reorganization requirements across all 5 screens and 5 target viewports (`1920x1080`, `1440x900`, `1366x768`, `390x844`, `360x800`), is live on the isolated Cloudflare Staging environment (`nas-newsroom-staging`), and is architecturally ready for production provisioning on `https://nr.nasfm.info`.
+Following explicit final user authorization (`CLAUDE.md` Rules 5 & 8), **Release A (Manual Editorial Newsroom Workstation)** has been deployed from the `main` branch (`e3573cd`) to the official production domain **`https://nr.nasfm.info`** backed by an isolated Cloudflare D1 database (`nas-newsroom-db`, `afb6589e-0630-44db-9dae-0a6d2015b28f`).
 
-Per governance rules (`CLAUDE.md` Rules 5 & 8 and `docs/01-foundation/NAS_Newsroom_Deployment_Decision_v1.0.md`), **zero mutations** have been made to production DNS, production D1, or the `main` branch during this verification phase. Section 5 provides the exact, copy-pasteable Production Deployment Runbook ready for immediate execution upon explicit user authorization.
+All 15 UI/UX workstation reorganization tasks across the 5 screens and 5 viewports (`1920x1080`, `1440x900`, `1366x768`, `390x844`, `360x800`) and all 15 live production security, authentication, CSRF, workflow, and D1 isolation checks on `https://nr.nasfm.info` passed 100%.
 
 ---
 
 ## 2. Verification of the 15 UI/UX Workstation Tasks
 
-All 15 tasks from the Workstation Reorganization & Responsive Polish phase were verified in source code, automated Playwright E2E assertions (`e2e/slice.spec.ts`), and the live Staging deployment:
+All 15 tasks from the Workstation Reorganization & Responsive Polish phase were verified in source code, automated Playwright E2E assertions (`e2e/slice.spec.ts`), Staging, and Production (`https://nr.nasfm.info`):
 
 | # | UI/UX Requirement | Verification Status | Implementation & Evidence Reference |
 |---|---|---|---|
@@ -50,147 +52,49 @@ All 15 tasks from the Workstation Reorganization & Responsive Polish phase were 
 
 ---
 
-## 3. Current Staging Deployment Details
+## 3. Environment Separation & Deployed Resources Matrix
 
-The Staging environment is live and isolated from both the public station website (`nasfm.info`) and the planned production newsroom (`nr.nasfm.info`):
-
-- **Staging URL**: `https://nas-newsroom-staging.nasfm98-7.workers.dev`
-- **Worker Name**: `nas-newsroom-staging` (`env.staging` in `wrangler.jsonc`)
-- **Active Version ID**: `42647d22-6a7b-4042-8e5a-63f847dc9ff8` (Deployed `2026-10-11T16:38:31.390Z`)
-- **Staging D1 Database**: `nas-newsroom-staging-db`
-  - **UUID**: `16f339cc-4038-44a5-a522-a933dc2ba07b`
-  - **Migrations Applied**: `0001_init.sql`, `0002_selected_formats.sql`
-- **Staging `ALLOWED_ORIGIN`**: `https://nas-newsroom-staging.nasfm98-7.workers.dev`
-- **Live HTTP Security Headers Verified (`HEAD https://nas-newsroom-staging.nasfm98-7.workers.dev`)**:
-  - `HTTP/1.1 200 OK`
-  - `Strict-Transport-Security: max-age=31536000` (No `includeSubDomains`)
-  - `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`
-  - `X-Content-Type-Options: nosniff`
-  - `X-Frame-Options: DENY`
-  - `Referrer-Policy: strict-origin-when-cross-origin`
+| Environment | URL / Host | Worker Name | Active Version ID | D1 Database Name | D1 Database UUID | `ALLOWED_ORIGIN` |
+|---|---|---|---|---|---|---|
+| **Production (Release A)** | `https://nr.nasfm.info` | `nas-newsroom` | `1976b85a-6a4c-4c57-951e-0c1757dec41c` | `nas-newsroom-db` | `afb6589e-0630-44db-9dae-0a6d2015b28f` | `https://nr.nasfm.info` |
+| **Staging** | `https://nas-newsroom-staging.nasfm98-7.workers.dev` | `nas-newsroom-staging` | `42647d22-6a7b-4042-8e5a-63f847dc9ff8` | `nas-newsroom-staging-db` | `16f339cc-4038-44a5-a522-a933dc2ba07b` | `https://nas-newsroom-staging.nasfm98-7.workers.dev` |
+| **Public Website** | `https://nasfm.info` | *(External / Untouched)* | *(Untouched)* | `nas-fm-db` | `a571d21d-e2c5-49bd-890f-2c05f573c450` | *(Untouched)* |
 
 ---
 
-## 4. Read-Only Cloudflare & Domain Inspection for `https://nr.nasfm.info`
+## 4. Production Deployment Execution Record (`main` → `https://nr.nasfm.info`)
 
-### 4.1 Cloudflare Account & Token Readiness (`npx wrangler whoami`)
-- **Account Name**: `Nasfm98.7@gmail.com's Account`
-- **Account ID**: `319042c4d3205823b79bcce277d353b4`
-- **Authenticated User**: `nasfm98.7@gmail.com`
-- **Active OAuth Scopes**: `account (read)`, `zone (read)`, `workers (write)`, `workers_routes (write)`, `workers_scripts (write)`, `d1 (write)`, `ssl_certs (write)`, `secrets_store (write)`.
-- **Readiness Verdict**: The authenticated Wrangler session holds all required permissions to provision the production D1 database, upload secrets, deploy the production Worker, and attach the Custom Domain `nr.nasfm.info`.
+1. **Isolated `main` Worktree & Fast-Forward**:
+   - Checked out `main` in an isolated worktree, fast-forwarded to `be0cfd8` (pure Manual Newsroom baseline prior to AI commits), applied production D1 & Custom Domain configuration (`30acd61`), merged with `origin/main` (`e3573cd8cc22383da056c2bb47f8b9f27dfb2ab5`), and pushed to `origin/main`.
+2. **Independent Production D1 Provisioning (`nas-newsroom-db`)**:
+   - Created `nas-newsroom-db` in region `EEUR` with UUID `afb6589e-0630-44db-9dae-0a6d2015b28f`.
+   - Applied both remote migrations (`0001_init.sql` and `0002_selected_formats.sql`).
+   - Verified tables (`users`, `sessions`, `stories`, `story_events`, `settings`, `d1_migrations`) and confirmed `SELECT COUNT(*) FROM stories` = `0` (zero staging data copied).
+3. **Production Editor Seeding**:
+   - Seeded the single production editor account (`nr`) into `nas-newsroom-db --remote` using PBKDF2-HMAC-SHA256 (`100,000` iterations, 16-byte random salt) without echoing or storing plaintext credentials.
+4. **Bundle Verification & Worker Deployment**:
+   - Built client bundle (`dist/client/app.js`, `88.0kb`) and passed `npm run check:bundle` (`33 files, no secrets or server-only identifiers`).
+   - Deployed `nas-newsroom` with Custom Domain trigger `nr.nasfm.info` (Version ID: `1976b85a-6a4c-4c57-951e-0c1757dec41c`).
+   - DNS for `nr.nasfm.info` resolved immediately to Cloudflare Edge (`104.21.56.153`, `172.67.152.193`, `2606:4700:3030::6815:3899`, `2606:4700:3034::ac43:98c1`) with active HTTPS TLS.
 
-### 4.2 D1 Database Separation (`npx wrangler d1 list`)
-| Database Name | UUID | Environment / Role | Isolation Status |
+---
+
+## 5. Live Production Verification Results on `https://nr.nasfm.info` (All 15 Checks)
+
+| # | Live Production Check (`https://nr.nasfm.info`) | Result | Observed Evidence |
 |---|---|---|---|
-| `nas-fm-db` | `a571d21d-e2c5-49bd-890f-2c05f573c450` | Public NAS FM Website (`nasfm.info`) | **Untouched & Isolated** |
-| `nas-newsroom-staging-db` | `16f339cc-4038-44a5-a522-a933dc2ba07b` | Newsroom Staging (`nas-newsroom-staging`) | **Active for Staging** |
-| `nas-newsroom-db` | *(Placeholder `00000000-0000-0000-0000-000000000000`)* | Newsroom Production (`nas-newsroom`) | **Ready to create upon approval** |
-
-### 4.3 DNS & Zone Inspection (`Resolve-DnsName`)
-- **Root Domain (`nasfm.info`)**:
-  - **Authoritative Nameservers (`NS`)**: `dolly.ns.cloudflare.com`, `jack.ns.cloudflare.com` (Cloudflare delegation is active and verified).
-  - **Root `A` / `AAAA` Records**: `188.114.96.3`, `188.114.97.3`, `2a06:98c1:3120::3`, `2a06:98c1:3121::3` (Cloudflare proxied edge).
-- **Production Subdomain (`nr.nasfm.info`)**:
-  - **Current DNS Resolution**: `NXDOMAIN` (No `A`, `AAAA`, or `CNAME` record exists yet).
-  - **Readiness Verdict**: Because `nasfm.info` is already an active Cloudflare Zone in this account, attaching `nr.nasfm.info` as a **Cloudflare Worker Custom Domain** will automatically create the proxied Worker DNS record and issue an edge TLS certificate for `nr.nasfm.info` without touching the root `nasfm.info` records.
-
-### 4.4 Security, Cookie, HSTS, CSP & `ALLOWED_ORIGIN` Audit for `https://nr.nasfm.info`
-1. **`ALLOWED_ORIGIN` & CSRF Protection (`wrangler.jsonc` & `src/worker.ts`)**:
-   - Top-level production `vars.ALLOWED_ORIGIN` in `wrangler.jsonc` (line 24) is set to `"https://nr.nasfm.info"`.
-   - `assertSameOriginIntent` in `src/worker.ts` (lines 26–30) enforces both `X-NAS-Client: 1` and `Origin === env.ALLOWED_ORIGIN` (`https://nr.nasfm.info`) on all non-`GET`/`HEAD` requests, returning `403 forbidden` on any mismatch.
-   - Zero CORS headers (`Access-Control-Allow-Origin`) are emitted anywhere.
-2. **Host-Only Session Cookie (`src/server/auth.ts`)**:
-   - `buildSessionCookie` (lines 21–23) emits:
-     `nas_session=${token}; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=...`
-   - Deliberately omits the `Domain` attribute (never `Domain=.nasfm.info`), guaranteeing the session cookie is **host-only** to `nr.nasfm.info` and never sent to `nasfm.info` or any other subdomain (Specs §15.1).
-3. **HSTS Without `includeSubDomains` (`src/client/_headers`)**:
-   - `src/client/_headers` (lines 5, 12) sets `Strict-Transport-Security: max-age=31536000` without `includeSubDomains`, complying strictly with Technical Specs §12.1 and §15.1 so the root domain `nasfm.info` is unaffected.
-4. **Content Security Policy & API Headers (`src/client/_headers` & `src/server/http.ts`)**:
-   - Static assets serve `Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'`, `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, and `Referrer-Policy: strict-origin-when-cross-origin`.
-   - API JSON responses (`src/server/http.ts`, lines 13–17) enforce `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, and `Cache-Control: no-store`.
-
----
-
-## 5. Step-by-Step Production Deployment Runbook (Release A → `https://nr.nasfm.info`)
-
-> [!IMPORTANT]
-> **Authorization Gate (`CLAUDE.md` Rules 5 & 8)**: Do **NOT** execute the commands below until the user grants explicit final authorization to deploy to `https://nr.nasfm.info` and merge `develop` into `main`.
-
-### Step 1 — Create the Isolated Production D1 Database (`nas-newsroom-db`)
-Run from `H:\Projects\NAS-NEWS-AGENT`:
-```powershell
-npx wrangler d1 create nas-newsroom-db
-```
-Copy the returned `database_id` UUID and replace the placeholder `"00000000-0000-0000-0000-000000000000"` in `wrangler.jsonc` under top-level `d1_databases[0].database_id`.
-
-### Step 2 — Apply Production D1 Schema Migrations
-Apply both verified migrations (`0001_init.sql` and `0002_selected_formats.sql`) to the remote production database:
-```powershell
-npx wrangler d1 migrations apply nas-newsroom-db --remote
-```
-
-### Step 3 — Configure Production Worker Secrets & Custom Domain in `wrangler.jsonc`
-1. Set a cryptographically random `SESSION_SIGNING_KEY` secret in the production Worker:
-   ```powershell
-   $bytes = New-Object Byte[] 32
-   [System.Security.Cryptography.RandomNumberGenerator]::Create().GetBytes($bytes)
-   $secret = ($bytes | ForEach-Object { $_.ToString("x2") }) -join ""
-   $secret | npx wrangler secret put SESSION_SIGNING_KEY
-   ```
-2. Add the Custom Domain route to the top-level production configuration in `wrangler.jsonc`:
-   ```jsonc
-   "routes": [
-     {
-       "pattern": "nr.nasfm.info",
-       "custom_domain": true
-     }
-   ]
-   ```
-
-### Step 4 — Seed the Single Production Editor Account
-Seed the initial editor account into `nas-newsroom-db` using PBKDF2-HMAC-SHA256 (`100,000` iterations, 16-byte random salt; plaintext password is never stored):
-```powershell
-$env:NAS_DB_NAME = "nas-newsroom-db"
-$env:NAS_REMOTE = "true"
-$env:NAS_EDITOR_EMAIL = "<production-editor-email>"
-$env:NAS_EDITOR_PASSWORD = "<strong-production-password>"
-npm run db:seed
-Remove-Item Env:\NAS_EDITOR_PASSWORD
-```
-
-### Step 5 — Run Full Pre-Release Quality Gate & Build
-```powershell
-npm run check
-```
-Verify:
-- `npm run lint` (`0` errors)
-- `npm run typecheck` (`0` errors)
-- `npm run build` & `npm run check:bundle` (`dist/client` contains zero secret identifiers)
-- `npm test` (100% Vitest unit & integration tests passing)
-- `npm run test:e2e` (100% Playwright E2E suite passing)
-
-### Step 6 — Merge `develop` to `main` and Deploy to Production (`https://nr.nasfm.info`)
-```powershell
-git checkout main
-git merge --no-ff develop -m "release: Release A production candidate for nr.nasfm.info"
-git push origin main
-npx wrangler deploy
-```
-
-### Step 7 — Post-Deployment Live Smoke Tests on `https://nr.nasfm.info`
-1. **DNS & TLS Verification**:
-   ```powershell
-   Resolve-DnsName nr.nasfm.info
-   Invoke-WebRequest -Uri "https://nr.nasfm.info/login" -Method Head -UseBasicParsing
-   ```
-   Confirm `200 OK`, valid HTTPS certificate, `Strict-Transport-Security: max-age=31536000` (without `includeSubDomains`), and `Content-Security-Policy: default-src 'self'...`.
-2. **Root Domain Isolation Check**:
-   ```powershell
-   Invoke-WebRequest -Uri "https://nasfm.info" -Method Head -UseBasicParsing
-   ```
-   Confirm `https://nasfm.info` remains completely unaffected.
-3. **Authentication & Host-Only Cookie Check**:
-   - Log in at `https://nr.nasfm.info/login` and verify `Set-Cookie: nas_session=...; HttpOnly; Secure; SameSite=Strict; Path=/` (no `Domain` attribute).
-4. **End-to-End Editorial Smoke Test**:
-   - Create a draft on `/stories/new`, verify autosave (`محفوظ`), transition to `/stories/:id/review`, edit formats, complete human verification checks, approve (`معتمد`), verify multi-format filtering in `/archive`, and log out (`POST /api/auth/logout` revokes D1 session).
+| **1** | **DNS Resolution & HTTPS `200 OK` on `/login`** | **PASS** | `nr.nasfm.info` resolves to Cloudflare Edge IPs (`104.21.56.153`, `172.67.152.193`); `GET https://nr.nasfm.info/login` returns `200 OK` over TLS. |
+| **2** | **Content Security Policy (`CSP`) Header** | **PASS** | `default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'self'; frame-ancestors 'none'; base-uri 'none'; form-action 'self'` |
+| **3** | **HSTS Header Without `includeSubDomains` (Specs §12.1)** | **PASS** | `Strict-Transport-Security: max-age=31536000` (no `includeSubDomains`). |
+| **4** | **Additional Security Headers (`XFO`, `XCTO`, `Referrer-Policy`)** | **PASS** | `X-Frame-Options: DENY`, `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`. |
+| **5** | **Client Bundle Secret Audit (`GET /app.js`)** | **PASS** | Zero occurrences of `AI_API_KEY`, `SESSION_SIGNING_KEY`, `password_hash`, or `sk-`. |
+| **6** | **CSRF & `ALLOWED_ORIGIN` Enforcement** | **PASS** | `POST /api/auth/login` with `Origin: https://evil.example` rejected with `403 Forbidden`. |
+| **7** | **Invalid Credentials Rejection** | **PASS** | `POST /api/auth/login` with wrong password rejected with `401 Unauthorized` and sets no cookie. |
+| **8** | **Valid Login & Host-Only Session Cookie (`nas_session`)** | **PASS** | `POST /api/auth/login` returns `200 OK` and sets `nas_session=...; HttpOnly; Secure; SameSite=Strict; Path=/` with no `Domain` attribute. |
+| **9** | **Initial Production D1 Isolation Check** | **PASS** | `GET /api/stories` returned `counts.total === 0` and `stories: []` (zero Staging data leakage). |
+| **10** | **Draft Creation, Autosave Patch & Restore** | **PASS** | `POST /api/stories` (`201`, ID `1e1ad74e-a0d5-42b5-b3c2-be21a7dbdd82`), `PATCH /api/stories/:id` (`200`), and `GET /api/stories/:id` (`200`) persisted and restored headline, 4 formats, and facts in `nas-newsroom-db`. |
+| **11** | **Review Transition & Server-Side Human Approval Gate (`422`)** | **PASS** | `POST /start-review` transitioned status to `قيد المراجعة`; premature `POST /approve` before human verification checkboxes returned `422 approval_blocked`. |
+| **12** | **Human Verification Checks & Multi-Format Archive Filtering** | **PASS** | `POST /checks` (`factsVerified: true, attributionVerified: true`) succeeded (`200`); story appeared under `GET /api/stories?format=radio`. |
+| **13** | **Smoke-Test Story Exclusion (`POST /exclude`)** | **PASS** | `POST /api/stories/1e1ad74e-a0d5-42b5-b3c2-be21a7dbdd82/exclude` transitioned the smoke-test record to `مستبعد` with documented reason, keeping the active editorial workspace clean while preserving the audit trail. |
+| **14** | **Settings Endpoint & Secret Isolation (`GET /api/settings`)** | **PASS** | Returned `200 OK` with `aiConfigured: false` and zero secret exposure. |
+| **15** | **Session Revocation on Logout (`POST /api/auth/logout`)** | **PASS** | Returned `204 No Content`, cleared cookie, and replaying the captured `nas_session` token against `GET /api/session` returned `401 Unauthorized`. |
