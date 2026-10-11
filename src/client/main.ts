@@ -55,6 +55,7 @@ async function navigate(path: string, replace = false): Promise<void> {
 function renderLogin(): void {
   disposeEditor();
   clear(root);
+  root.classList.remove('boot');
   const errorBox = h('div', { id: 'login-error', class: 'alert alert-danger', role: 'alert', hidden: true });
   const email = h('input', {
     id: 'login-email',
@@ -173,6 +174,7 @@ function renderShell(
   ) => void,
 ): void {
   clear(root);
+  root.classList.remove('boot');
 
   const brandSub = h('small', { id: 'sidebar-station-name' }, stationName);
   const archiveBadge = h(

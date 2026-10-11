@@ -520,6 +520,7 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
           );
           const doc = document.documentElement;
           const sidebar = document.querySelector('.sidebar') as HTMLElement;
+          const logoutBtn = document.querySelector('#btn-logout') as HTMLElement;
           const imgs = allImgs.map((img) => ({
             src: img.getAttribute('src'),
             loaded: img.complete && img.naturalWidth > 0,
@@ -531,12 +532,14 @@ test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste
             winW: window.innerWidth,
             sidebarScrollH: sidebar.scrollHeight,
             sidebarClientH: sidebar.clientHeight,
+            logoutBottom: logoutBtn.getBoundingClientRect().bottom,
             brokenImgs: imgs.filter((i) => !i.loaded),
           };
         });
         expect(metrics.docScrollH, `Desktop ${size.width}x${size.height} ${route} vertical scroll`).toBeLessThanOrEqual(metrics.winH);
         expect(metrics.docScrollW, `Desktop ${size.width}x${size.height} ${route} horizontal scroll`).toBeLessThanOrEqual(metrics.winW);
         expect(metrics.sidebarScrollH, `Desktop ${size.width}x${size.height} ${route} sidebar scroll`).toBeLessThanOrEqual(metrics.sidebarClientH);
+        expect(metrics.logoutBottom, `Desktop ${size.width}x${size.height} ${route} #btn-logout inside viewport`).toBeLessThanOrEqual(metrics.winH);
         expect(metrics.brokenImgs, `Desktop ${size.width}x${size.height} ${route} broken images`).toEqual([]);
       }
     }
