@@ -231,7 +231,7 @@ export function parseAndValidateEditorialJson(
 }
 
 /**
- * Recomputes `hasBlocker` on the server from structural sub-fields (Specs §7.3).
+ * Recomputes `hasBlocker` on the server from structural sub-fields (Specs §7.3, SC-03).
  * Never trusts a single boolean flag if any `review-req` fact or `unattributed` claim exists.
  */
 export function computeServerBlocker(output: EditorialAIOutput): ServerBlockerResult {

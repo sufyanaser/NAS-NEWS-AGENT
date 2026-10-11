@@ -1,10 +1,10 @@
 /**
  * Arabic editorial AI pipeline orchestration:
- * - Source sufficiency & 20,000-char length guard (Specs §7.2)
- * - Prompt construction with `<source_text>` isolation
+ * - Source sufficiency & 20,000-char length guard (Specs §7.2, SC-01, SC-02)
+ * - Prompt construction with `<source_text>` isolation & English translation support (SC-03)
  * - Provider invocation & structured JSON validation
- * - Server-side `hasBlocker` computation (Specs §7.3)
- * - Non-blocking `numberWarnings` superset check (Specs §8.1)
+ * - Server-side `hasBlocker` computation for unattributed claims (Specs §7.3, SC-03)
+ * - Non-blocking `numberWarnings` superset check (Specs §8.1, SC-03)
  * - Manual edit preservation when `overwriteExisting !== true`
  */
 import { FORMAT_KEYS, LIMITS } from '../../shared/contracts';

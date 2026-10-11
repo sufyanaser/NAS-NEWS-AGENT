@@ -1,10 +1,8 @@
 /**
  * Unit tests for the NAS Newsroom Arabic Editorial AI Pipeline:
- * - Prompt builders & `<source_text>` XML injection isolation
- * - Strict JSON schema parsing & markdown fence stripping
- * - Server-side `hasBlocker` computation (Specs §7.3, SC-02)
- * - Non-blocking `checkNumberSuperset` guard (Specs §8.1, Arabic & Western digits)
- * - Full `runEditorialPipeline` orchestration (source validation, manual edit protection, overwrite mode)
+ * - SC-01: المسار التحريري الطبيعي (Normal editorial flow, missing context flagging, manual edit protection)
+ * - SC-02: فشل استيراد المصدر والانتقال للإدخال اليدوي (Source sufficiency guard before AI extraction)
+ * - SC-03: دقة الإسناد والموانع التحريرية والترجمة من الإنجليزية (Specs §7.3 server-side `hasBlocker`, unattributed claim blocking, English-to-Arabic translation, Specs §8.1 number superset check)
  */
 import { describe, expect, it, vi } from 'vitest';
 import type { Env } from '../src/server/env';
@@ -117,7 +115,7 @@ function createBasePipelineInput(
 }
 
 describe('prompts.ts — Arabic editorial prompt builders & injection isolation', () => {
-  it('builds system prompt with station identity, grounding rules, SC-03 translation, and radio timing rules', () => {
+  it('builds system prompt with station identity, grounding rules (SC-01 & SC-03), translation, and radio timing rules', () => {
     const prompt = buildEditorialSystemPrompt({
       stationName: 'NAS FM — إذاعة ناس',
       editorialStyle: 'فصحى إخبارية إذاعية مبسطة',
@@ -166,7 +164,7 @@ describe('prompts.ts — Arabic editorial prompt builders & injection isolation'
   });
 });
 
-describe('schema.ts — parseAndValidateEditorialJson', () => {
+describe('schema.ts — parseAndValidateEditorialJson (SC-01)', () => {
   it('parses valid raw JSON and suppresses urgent format when urgentEnabled is false', () => {
     const rawPayload = createValidAIOutput();
     const parsed = parseAndValidateEditorialJson(JSON.stringify(rawPayload), {
@@ -218,7 +216,7 @@ describe('schema.ts — parseAndValidateEditorialJson', () => {
   });
 });
 
-describe('schema.ts — computeServerBlocker (Specs §7.3, SC-02)', () => {
+describe('schema.ts — computeServerBlocker (Specs §7.3, SC-03: دقة الإسناد والموانع التحريرية)', () => {
   it('returns hasBlocker = false when all claims are attributed and no review-req facts exist', () => {
     const cleanOutput = createValidAIOutput();
     const result = computeServerBlocker(cleanOutput);
@@ -298,7 +296,7 @@ describe('schema.ts — computeServerBlocker (Specs §7.3, SC-02)', () => {
   });
 });
 
-describe('schema.ts — checkNumberSuperset (Specs §8.1)', () => {
+describe('schema.ts — checkNumberSuperset (Specs §8.1, SC-03)', () => {
   it('accepts matching numbers across Eastern Arabic (٠-٩) and Western (0-9) numerals without warnings', () => {
     const sourceText =
       'أعلنت وزارة الإعمار في عام ٢٠٢٦ افتتاح ١٢ مشروعاً بكلفة 45 مليار دينار لخدمة 1,500 عائلة.';
@@ -329,7 +327,7 @@ describe('schema.ts — checkNumberSuperset (Specs §8.1)', () => {
   });
 });
 
-describe('pipeline.ts — runEditorialPipeline orchestration & manual edit protection', () => {
+describe('pipeline.ts — runEditorialPipeline orchestration, SC-01, SC-02 & SC-03 scenarios', () => {
   const mockEnv = {} as Env;
 
   function createMockDeps(rawOutput: EditorialAIOutput): EditorialPipelineDeps {
@@ -348,7 +346,133 @@ describe('pipeline.ts — runEditorialPipeline orchestration & manual edit prote
     };
   }
 
-  it('preserves non-empty manual headline and manual formats when overwriteExisting is false', async () => {
+  it('SC-03: flags unattributed claims ("يُقال إن نسبة الهدر 40%") with hasBlocker = true and mandatory review status', async () => {
+    const unattributedOutput = createValidAIOutput({
+      headline: 'جدل حول مشاريع المياه وسط ادعاءات غير مسندة بشأن نسب الهدر',
+      facts: [
+        {
+          label: 'ادعاء نسبة الهدر',
+          value: 'يُقال إن نسبة الهدر 40%',
+          status: 'المتحدث غير محدد — مراجعة إلزامية',
+          type: 'review-req',
+        },
+      ],
+      attribution_flags: [
+        {
+          claim: 'يُقال إن نسبة الهدر 40%',
+          attributedTo: null,
+          confidence: 'unattributed',
+        },
+      ],
+      formats: {
+        radio:
+          'أفادت تقارير محلية بوجود نقاش حول شبكات المياه، حيث يُقال إن نسبة الهدر 40% دون صدور تأكيد رسمي.',
+        web: 'تداولت أوساط محلية حديثاً يفيد بأنه يُقال إن نسبة الهدر 40% في الشبكات القديمة دون تحديد متحدث رسمي.',
+        facebook: 'نقاش حول كفاءة شبكات المياه ومطالبات بتوضيح رسمي حول نسب الهدر.',
+        urgent: '',
+      },
+      model_self_assessment: {
+        all_claims_sourced: false,
+        all_numbers_sourced: true,
+        has_unattributed_major_claim: true,
+        radio_fit_seconds: 26,
+      },
+    });
+    const deps = createMockDeps(unattributedOutput);
+
+    const input = createBasePipelineInput({
+      story: {
+        id: '11111111-2222-3333-4444-555555555555',
+        sourceText:
+          'شهدت المحافظة اليوم اجتماعاً لمناقشة واقع شبكات المياه الصالحة للشرب، ويُقال إن نسبة الهدر 40% في الأنابيب القديمة بحسب أحاديث غير رسمية متداولة في المنطقة.',
+        sourceName: 'تقرير ميداني محلي',
+        sourceLang: 'العربية',
+        category: 'خدمي / بيئي',
+        publishDate: '2026-10-11',
+        urgentEnabled: false,
+        selectedFormats: ['radio', 'web', 'facebook'],
+        currentHeadline: '',
+        currentFormats: { radio: '', web: '', facebook: '', urgent: '' },
+      },
+    });
+
+    const result = await runEditorialPipeline(mockEnv, input, deps);
+
+    expect(result.hasBlocker).toBe(true);
+    expect(result.blockerReason).toContain('يُقال إن نسبة الهدر 40%');
+    expect(result.facts.some((f) => f.type === 'review-req')).toBe(true);
+    expect(result.attributionFlags.some((a) => a.confidence === 'unattributed')).toBe(true);
+    expect(result.numberWarnings).toEqual([]);
+  });
+
+  it('SC-03: translates and drafts English source material (sourceLang: "الإنجليزية") into Arabic while preserving numbers and attribution', async () => {
+    const translatedOutput = createValidAIOutput({
+      headline: 'اليونيسف تدعو إلى حماية الأنهار في العراق وتوفير المياه الآمنة لنحو 250,000 طفل',
+      facts: [
+        {
+          label: 'الجهة المعلنة',
+          value: 'منظمة الأمم المتحدة للطفولة (يونيسف)',
+          status: 'وارد في المصدر',
+          type: 'sourced',
+        },
+        {
+          label: 'عدد الأطفال المستهدفين',
+          value: '250000 طفل في المحافظات الجنوبية',
+          status: 'وارد في المصدر',
+          type: 'sourced',
+        },
+      ],
+      attribution_flags: [
+        {
+          claim: 'حماية الأنهار أولوية لضمان مياه آمنة لنحو 250000 طفل',
+          attributedTo: 'بيان منظمة اليونيسف في العراق',
+          confidence: 'official',
+        },
+      ],
+      formats: {
+        radio:
+          'دعت منظمة اليونيسف في العراق، اليوم، إلى تكثيف الجهود لحماية الأنهار ومصادر المياه، مؤكدة أن المبادرة تستهدف تأمين المياه النظيفة لمائتين وخمسين ألف طفل في المحافظات الجنوبية.',
+        web: 'أكدت منظمة الأمم المتحدة للطفولة (يونيسف) في بيان صدر في 28 سبتمبر 2026 أن حماية الأنهار في العراق تمثل ركيزة أساسية لتأمين المياه النظيفة لنحو 250000 طفل.',
+        facebook:
+          'اليونيسف في العراق تدعو لحماية الأنهار وتأمين المياه النظيفة لنحو 250000 طفل وفق بيانها الرسمي.',
+        urgent: '',
+      },
+      model_self_assessment: {
+        all_claims_sourced: true,
+        all_numbers_sourced: true,
+        has_unattributed_major_claim: false,
+        radio_fit_seconds: 29,
+      },
+    });
+    const deps = createMockDeps(translatedOutput);
+
+    const input = createBasePipelineInput({
+      story: {
+        id: '22222222-3333-4444-5555-666666666666',
+        sourceText:
+          'BAGHDAD, 28 September 2026 — UNICEF Iraq called on national partners today to strengthen river protection initiatives, noting that clean water access remains vital for 250,000 children across southern provinces.',
+        sourceName: 'UNICEF Iraq Press Release',
+        sourceLang: 'الإنجليزية',
+        category: 'بيئي / محلي',
+        publishDate: '2026-09-28',
+        urgentEnabled: false,
+        selectedFormats: ['radio', 'web', 'facebook'],
+        currentHeadline: '',
+        currentFormats: { radio: '', web: '', facebook: '', urgent: '' },
+      },
+    });
+
+    const result = await runEditorialPipeline(mockEnv, input, deps);
+
+    expect(result.hasBlocker).toBe(false);
+    expect(result.headline).toContain('اليونيسف');
+    expect(result.numberWarnings).toEqual([]);
+    expect(deps.generateFn).toHaveBeenCalledTimes(1);
+    const callArgs = vi.mocked(deps.generateFn).mock.calls[0];
+    expect(callArgs?.[1].userPrompt).toContain('لغة المصدر (sourceLang): الإنجليزية');
+  });
+
+  it('SC-01: preserves non-empty manual headline and manual formats when overwriteExisting is false', async () => {
     const aiOutput = createValidAIOutput();
     const deps = createMockDeps(aiOutput);
 
@@ -391,7 +515,7 @@ describe('pipeline.ts — runEditorialPipeline orchestration & manual edit prote
     expect(result.usage.estimatedCostUsd).toBeGreaterThan(0);
   });
 
-  it('overwrites existing headline and formats when overwriteExisting is true', async () => {
+  it('SC-01: overwrites existing headline and formats when overwriteExisting is true', async () => {
     const aiOutput = createValidAIOutput();
     const deps = createMockDeps(aiOutput);
 
@@ -429,7 +553,7 @@ describe('pipeline.ts — runEditorialPipeline orchestration & manual edit prote
     expect(result.preservedManualFormats).toEqual([]);
   });
 
-  it('rejects sourceText longer than 20,000 characters with code "source_too_long" and Arabic message', async () => {
+  it('Specs §7.2c: rejects sourceText longer than 20,000 characters with code "source_too_long" and Arabic message', async () => {
     const aiOutput = createValidAIOutput();
     const deps = createMockDeps(aiOutput);
 

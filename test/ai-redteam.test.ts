@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { resetTestModelRateLimit } from '../src/server/settings';
 import { extractStory } from '../src/server/stories';
 import type {
+  ImportResponse,
   SettingsDto,
   StoryDto,
   StoryExtractResponseDto,
@@ -11,7 +12,13 @@ import type {
 import { api, createDraft, loginCookie } from './helpers';
 
 const VALID_ARABIC_SOURCE =
-  'أعلنت وزارة التربية العراقية في بغداد يوم 28 سبتمبر 2026 عن افتتاح 120 مدرسة نموذجية جديدة في مختلف المحافظات لخدمة 45000 طالب وطالبة ضمن خطة العام الدراسي الجديد.';
+  'أعلنت وزارة التربية العراقية بالتعاون مع منظمة اليونسكو في بغداد يوم 28 سبتمبر 2026 عن افتتاح 120 مدرسة نموذجية جديدة في مختلف المحافظات لخدمة 45000 طالب وطالبة ضمن خطة العام الدراسي الجديد.';
+
+const DIWANIYAH_WATER_SOURCE =
+  'أفاد تقرير منظمة اليونيسف الصادر يوم 1 أكتوبر 2026 حول شح المياه في محافظة الديوانية بأن انخفاض مناسيب المياه أثر على 15000 عائلة في القرى الزراعية، مع خطة عاجلة لتوفير حوضيات مياه صالحة للشرب.';
+
+const RIVER_ATTRIBUTION_SOURCE =
+  'أكدت منظمة اليونيسف في بيان صدر يوم 28 سبتمبر 2026 حول حماية الأنهار في العراق ضرورة تقليل التلوث الصناعي في نهر دجلة، بينما زعمت جهات غير مسماة إغلاق 18 محطة تصفية دون صدور تأكيد رسمي.';
 
 const RUMOR_ARABIC_SOURCE =
   'يُقال إن نسبة الهدر في مشاريع المياه بمدينة الديوانية بلغت 40% خلال الشهر الماضي بحسب أحاديث متداولة، دون صدور أي تعليق أو بيان رسمي من مديرية ماء الديوانية حتى الآن.';
@@ -19,7 +26,11 @@ const RUMOR_ARABIC_SOURCE =
 const ENGLISH_SOURCE =
   'UNICEF Iraq stated in a press release on 28 September 2026 in Baghdad that the river protection initiative will support 35 communities along the Tigris River and provide clean drinking water to 12000 children.';
 
-function makeGeminiSuccessResponse(payload: Record<string, unknown>, inputTokens = 320, outputTokens = 210): Response {
+function makeGeminiSuccessResponse(
+  payload: Record<string, unknown>,
+  inputTokens = 320,
+  outputTokens = 210,
+): Response {
   return new Response(
     JSON.stringify({
       candidates: [
@@ -43,7 +54,9 @@ function makeGeminiSuccessResponse(payload: Record<string, unknown>, inputTokens
 }
 
 function withProviderSecrets<T>(
-  secrets: Partial<Record<'GEMINI_API_KEY' | 'OPENAI_API_KEY' | 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY', string>>,
+  secrets: Partial<
+    Record<'GEMINI_API_KEY' | 'OPENAI_API_KEY' | 'ANTHROPIC_API_KEY' | 'OPENROUTER_API_KEY', string>
+  >,
   fn: () => Promise<T>,
 ): Promise<T> {
   const mutableEnv = env as unknown as Record<string, string | undefined>;
@@ -63,7 +76,7 @@ function withProviderSecrets<T>(
   });
 }
 
-describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () => {
+describe('NAS Newsroom AI — Red Team, Security & Canonical Scenarios Suite', () => {
   beforeEach(() => {
     resetTestModelRateLimit();
   });
@@ -369,25 +382,27 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
     });
   });
 
-  describe('Editorial Scenarios (SC-01, SC-02, SC-03), Prompt Injection & Manual Edit Protection', () => {
-    it('SC-01 (RT-06): extracts official Arabic source with numbers/dates, transitions مسودة -> قيد المراجعة, logs extract_succeeded, and flags ungrounded numbers via numberWarnings', async () => {
+  describe('Canonical Scenarios (SC-01, SC-02, SC-03) & Additional AI Safety Scenarios', () => {
+    it('SC-01 (المسار التحريري الطبيعي): official source with numbers/dates -> extraction -> 4 formats + facts + number superset check -> human verification -> approval', async () => {
       await withProviderSecrets({ GEMINI_API_KEY: 'test-gemini-secret-key-999' }, async () => {
         const cookie = await loginCookie();
         const { id } = await createDraft(cookie, {
-          sourceName: 'وزارة التربية العراقية',
+          sourceName: 'وزارة التربية العراقية / اليونسكو',
           publishDate: '2026-09-28',
           category: 'تعليمي / خدمي',
           sourceLang: 'العربية',
+          urgentEnabled: true,
+          selectedFormats: ['radio', 'web', 'facebook', 'urgent'],
           sourceText: VALID_ARABIC_SOURCE,
         });
 
-        // 1. Clean extraction with grounded numbers (28, 2026, 120, 45000)
+        // 1. Clean extraction with grounded numbers (28, 2026, 120, 45000) across all 4 formats
         const cleanAiPayload = {
           headline: 'وزارة التربية تفتتح 120 مدرسة نموذجية لخدمة 45000 طالب في العراق',
           facts: [
             {
               label: 'الجهة المعلنة',
-              value: 'وزارة التربية العراقية في بغداد',
+              value: 'وزارة التربية العراقية بالتعاون مع اليونسكو في بغداد',
               status: 'وارد في المصدر',
               type: 'sourced',
             },
@@ -414,12 +429,12 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
           formats: {
             radio:
               'أعلنت وزارة التربية العراقية في بغداد يوم 28 سبتمبر 2026 افتتاح 120 مدرسة نموذجية جديدة في مختلف المحافظات لخدمة 45000 طالب وطالبة مع انطلاق العام الدراسي الجديد.',
-            web: 'افتتحت وزارة التربية العراقية في بغداد يوم 28 سبتمبر 2026 نحو 120 مدرسة نموذجية جديدة موزعة على المحافظات لخدمة 45000 طالب وطالبة.',
+            web: 'افتتحت وزارة التربية العراقية بالتعاون مع اليونسكو في بغداد يوم 28 سبتمبر 2026 نحو 120 مدرسة نموذجية جديدة موزعة على المحافظات لخدمة 45000 طالب وطالبة.',
             facebook:
               'التربية العراقية تفتتح 120 مدرسة نموذجية جديدة لخدمة 45000 طالب وطالبة في مختلف المحافظات.',
-            urgent: '',
+            urgent: 'عاجل | وزارة التربية تفتتح 120 مدرسة نموذجية لخدمة 45000 طالب في المحافظات',
           },
-          editorial_notes: 'جميع الأرقام والتواريخ مطابقة لبيان وزارة التربية.',
+          editorial_notes: 'جميع الأرقام والتواريخ مطابقة لبيان وزارة التربية واليونسكو.',
           model_self_assessment: {
             all_claims_sourced: true,
             all_numbers_sourced: true,
@@ -446,6 +461,7 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
         expect(body1.story.formats.radio).toContain('45000');
         expect(body1.story.formats.web).toContain('120');
         expect(body1.story.formats.facebook).toContain('45000');
+        expect(body1.story.formats.urgent).toContain('120');
         expect(body1.story.facts).toHaveLength(3);
         expect(body1.numberWarnings).toEqual([]);
         expect(fetchSpy).toHaveBeenCalledTimes(1);
@@ -484,56 +500,184 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
         const getRes = await api(`/api/stories/${id}`, { cookie });
         const getStoryData = (await getRes.json()) as { story: StoryDto };
         expect(getStoryData.story.aiMetadata?.numberWarnings?.[0]).toContain('999');
+
+        // 3. Complete normal SC-01 workflow: human verification -> approval
+        await api(`/api/stories/${id}/checks`, {
+          method: 'POST',
+          cookie,
+          body: { factsVerified: true, attributionVerified: true },
+        });
+        const approveRes = await api(`/api/stories/${id}/approve`, {
+          method: 'POST',
+          cookie,
+        });
+        expect(approveRes.status).toBe(200);
+        expect(((await approveRes.json()) as { story: StoryDto }).story.status).toBe('معتمد');
       });
     });
 
-    it('SC-02 (RT-07): unattributed claim forces hasBlocker=true, blocks approval (422) even when checkboxes are checked, and requires resolve-blocker + re-verification', async () => {
+    it('SC-02 (فشل استيراد المصدر والانتقال للإدخال اليدوي): import failure on blocked/unreachable URL preserves manual text & sourceUrl, followed by successful AI extraction on manual text', async () => {
       await withProviderSecrets({ GEMINI_API_KEY: 'test-gemini-secret-key-999' }, async () => {
         const cookie = await loginCookie();
+        const sourceUrl = 'https://www.facebook.com/unicefiraq/posts/diwaniyah-water-2026';
+
+        // Editor creates story draft with initial manual text / notes and source name
         const { id } = await createDraft(cookie, {
-          sourceName: 'متداول محلي — الديوانية',
+          sourceName: 'تقرير يونيسف — الديوانية',
+          sourceUrl,
           publishDate: '2026-10-01',
           category: 'خدمي / بيئي',
           sourceLang: 'العربية',
-          sourceText: RUMOR_ARABIC_SOURCE,
+          sourceText: DIWANIYAH_WATER_SOURCE,
         });
 
-        const rumorAiPayload = {
-          headline: 'حديث متداول عن وصول نسبة الهدر في مشاريع مياه الديوانية إلى 40%',
+        // 1. Attempt to import from a blocked/protected URL (403 Forbidden)
+        const fetchSpy = vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () => {
+          return new Response('<html><body>Login required</body></html>', {
+            status: 403,
+            headers: { 'Content-Type': 'text/html' },
+          });
+        });
+
+        const importRes = await api(`/api/stories/${id}/import`, {
+          method: 'POST',
+          cookie,
+          body: { url: sourceUrl },
+        });
+        // Specs §3.3 & §9.1: Import failure returns HTTP 200 with ok: false and preserves source_url & existing manual source_text!
+        expect(importRes.status).toBe(200);
+        const importBody = (await importRes.json()) as ImportResponse;
+        expect(importBody.ok).toBe(false);
+        if (!importBody.ok) {
+          expect(importBody.failureClass).toBe('blocked');
+          expect(importBody.importMessage).toContain('يرجى لصق النص الأصلي يدوياً');
+        }
+
+        // Verify sourceUrl and manual sourceText were NOT lost upon import failure
+        const afterImportGet = await api(`/api/stories/${id}`, { cookie });
+        const afterImportStory = ((await afterImportGet.json()) as { story: StoryDto }).story;
+        expect(afterImportStory.sourceUrl).toBe(sourceUrl);
+        expect(afterImportStory.importFailed).toBe(true);
+        expect(afterImportStory.sourceText).toBe(DIWANIYAH_WATER_SOURCE);
+
+        // 2. Now run AI extraction on the manually entered source text
+        const diwaniyahAiPayload = {
+          headline: 'تقرير لليونيسف يرصد تضرر 15000 عائلة جراء شح المياه في الديوانية',
           facts: [
             {
-              label: 'نسبة الهدر المتداولة',
-              value: 'يُقال إن نسبة الهدر بلغت 40% دون بيان رسمي',
+              label: 'الجهة المصدرة',
+              value: 'منظمة اليونيسف (تقرير 1 أكتوبر 2026)',
+              status: 'وارد في المصدر',
+              type: 'sourced',
+            },
+            {
+              label: 'عدد العائلات المتضررة',
+              value: '15000 عائلة في القرى الزراعية بمحافظة الديوانية',
+              status: 'وارد في المصدر',
+              type: 'sourced',
+            },
+          ],
+          attribution_flags: [
+            {
+              claim: 'انخفاض مناسيب المياه أثر على 15000 عائلة في الديوانية',
+              attributedTo: 'تقرير منظمة اليونيسف',
+              confidence: 'official',
+            },
+          ],
+          formats: {
+            radio:
+              'أفاد تقرير لمنظمة اليونيسف صدر يوم 1 أكتوبر 2026 بأن شح المياه في محافظة الديوانية أثر على 15000 عائلة في القرى الزراعية، وسط خطة عاجلة لتوفير حوضيات مياه صالحة للشرب.',
+            web: 'ذكر تقرير منظمة اليونيسف الصادر بتاريخ 1 أكتوبر 2026 أن انخفاض مناسيب المياه في الديوانية أثر على 15000 عائلة.',
+            facebook:
+              'يونيسف: تضرر 15000 عائلة في قرى الديوانية بسبب شح المياه وخطة عاجلة لتوفير حوضيات المياه.',
+            urgent: '',
+          },
+          editorial_notes: 'تم التوليد من النص المدخل يدوياً بعد تعذر قراءة الرابط الآلي.',
+          model_self_assessment: {
+            all_claims_sourced: true,
+            all_numbers_sourced: true,
+            has_unattributed_major_claim: false,
+            radio_fit_seconds: 26,
+          },
+        };
+
+        fetchSpy.mockImplementationOnce(async () => makeGeminiSuccessResponse(diwaniyahAiPayload));
+
+        const extractRes = await api(`/api/stories/${id}/extract`, {
+          method: 'POST',
+          cookie,
+          body: { provider: 'gemini', model: 'gemini-2.5-flash' },
+        });
+        expect(extractRes.status).toBe(200);
+        const extractData = (await extractRes.json()) as StoryExtractResponseDto;
+
+        expect(extractData.story.status).toBe('قيد المراجعة');
+        expect(extractData.story.sourceUrl).toBe(sourceUrl);
+        expect(extractData.story.sourceText).toBe(DIWANIYAH_WATER_SOURCE);
+        expect(extractData.story.headline).toContain('15000');
+        expect(extractData.story.formats.radio).toContain('15000');
+        expect(extractData.story.hasBlocker).toBe(false);
+        expect(extractData.numberWarnings).toEqual([]);
+      });
+    });
+
+    it('SC-03 (دقة الإسناد والموانع التحريرية): attribution accuracy & editorial blocker enforcement blocks approve (422) until resolved via resolve-blocker and re-verified', async () => {
+      await withProviderSecrets({ GEMINI_API_KEY: 'test-gemini-secret-key-999' }, async () => {
+        const cookie = await loginCookie();
+        const { id } = await createDraft(cookie, {
+          sourceName: 'بيان يونيسف ومتابعات محلية — حماية الأنهار',
+          publishDate: '2026-09-28',
+          category: 'بيئي / محلي',
+          sourceLang: 'العربية',
+          sourceText: RIVER_ATTRIBUTION_SOURCE,
+        });
+
+        const sc03AiPayload = {
+          headline: 'يونيسف تدعو لحماية نهر دجلة وسط مزاعم غير مؤكدة عن إغلاق 18 محطة تصفية',
+          facts: [
+            {
+              label: 'موقف اليونيسف الرسمي',
+              value: 'ضرورة تقليل التلوث الصناعي في نهر دجلة (بيان 28 سبتمبر 2026)',
+              status: 'وارد في المصدر',
+              type: 'sourced',
+            },
+            {
+              label: 'ادعاء إغلاق محطات التصفية',
+              value: 'زعمت جهات غير مسماة إغلاق 18 محطة تصفية دون تأكيد رسمي',
               status: 'المتحدث غير محدد — مراجعة إلزامية',
               type: 'review-req',
             },
           ],
           attribution_flags: [
             {
-              claim: 'نسبة الهدر في مشاريع المياه بمدينة الديوانية بلغت 40%',
+              claim: 'ضرورة تقليل التلوث الصناعي في نهر دجلة',
+              attributedTo: 'منظمة اليونيسف',
+              confidence: 'official',
+            },
+            {
+              claim: 'إغلاق 18 محطة تصفية مياه',
               attributedTo: null,
               confidence: 'unattributed',
             },
           ],
           formats: {
             radio:
-              'أفادت أحاديث متداولة في الديوانية بأن نسبة الهدر في مشاريع المياه بلغت 40% خلال الشهر الماضي، من دون صدور بيان رسمي من مديرية ماء الديوانية.',
-            web: 'تداولت أوساط محلية في الديوانية ادعاءات غير رسمية بأن نسبة الهدر في مشاريع المياه بلغت 40%.',
-            facebook: 'أحاديث غير رسمية عن هدر بنسبة 40% في مياه الديوانية بانتظار توضيح رسمي.',
+              'أكدت منظمة اليونيسف في بيان صدر يوم 28 سبتمبر 2026 ضرورة تقليل التلوث الصناعي في نهر دجلة، في وقت تحدثت فيه جهات غير مسماة عن إغلاق 18 محطة تصفية من دون تأكيد رسمي.',
+            web: 'شددت منظمة اليونيسف يوم 28 سبتمبر 2026 على حماية نهر دجلة من التلوث الصناعي، بينما لم تتأكد رسمياً مزاعم إغلاق 18 محطة تصفية.',
+            facebook: 'يونيسف تدعو لحماية نهر دجلة من التلوث الصناعي.',
             urgent: '',
           },
-          editorial_notes: 'الخبر يتضمن ادعاءً غير مسند لجهة رسمية.',
+          editorial_notes: 'يجب مراجعة الادعاء غير المسند حول إغلاق 18 محطة تصفية أو حذفه قبل الاعتماد.',
           model_self_assessment: {
             all_claims_sourced: false,
             all_numbers_sourced: true,
-            // Even if the model self-assessment falsely says false, server must compute true from unattributed flag & review-req fact!
-            has_unattributed_major_claim: false,
-            radio_fit_seconds: 25,
+            has_unattributed_major_claim: true,
+            radio_fit_seconds: 28,
           },
         };
 
         vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () =>
-          makeGeminiSuccessResponse(rumorAiPayload),
+          makeGeminiSuccessResponse(sc03AiPayload),
         );
 
         const extractRes = await api(`/api/stories/${id}/extract`, {
@@ -546,6 +690,7 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
 
         expect(extractData.story.hasBlocker).toBe(true);
         expect(extractData.story.blockerReason).toContain('مانع تحريري');
+        expect(extractData.attributionFlags).toHaveLength(2);
 
         // Editor checks both human verification boxes while blocker is still active
         const checksRes1 = await api(`/api/stories/${id}/checks`, {
@@ -561,7 +706,10 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
           cookie,
         });
         expect(blockedApproveRes.status).toBe(422);
-        const blockedBody = (await blockedApproveRes.json()) as { error: string; reasons: string[] };
+        const blockedBody = (await blockedApproveRes.json()) as {
+          error: string;
+          reasons: string[];
+        };
         expect(blockedBody.error).toBe('approval_blocked');
         expect(blockedBody.reasons.some((r) => r.includes('مانع تحريري'))).toBe(true);
 
@@ -578,7 +726,8 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
           method: 'POST',
           cookie,
           body: {
-            resolutionNote: 'تم التواصل هاتفياً مع مدير ماء الديوانية وتوثيق النسبة الرسمية في المسودة.',
+            resolutionNote:
+              'تم حذف الادعاء غير المسند حول إغلاق المحطات والاكتفاء ببيان اليونيسف الرسمي الموثق.',
           },
         });
         expect(resolveRes.status).toBe(200);
@@ -612,7 +761,80 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
       });
     });
 
-    it('SC-03 (RT-08): English source produces accurate Arabic newsroom drafts, preserves numbers across languages, and flags missing facts', async () => {
+    it('AI-UNATTRIBUTED-CLAIM: rumor claim ("يُقال إن نسبة الهدر 40%") forces server hasBlocker=true even if model self-assessment is false', async () => {
+      await withProviderSecrets({ GEMINI_API_KEY: 'test-gemini-secret-key-999' }, async () => {
+        const cookie = await loginCookie();
+        const { id } = await createDraft(cookie, {
+          sourceName: 'متداول محلي — الديوانية',
+          publishDate: '2026-10-01',
+          category: 'خدمي / بيئي',
+          sourceLang: 'العربية',
+          sourceText: RUMOR_ARABIC_SOURCE,
+        });
+
+        const rumorAiPayload = {
+          headline: 'حديث متداول عن وصول نسبة الهدر في مشاريع مياه الديوانية إلى 40%',
+          facts: [
+            {
+              label: 'نسبة الهدر المتداولة',
+              value: 'يُقال إن نسبة الهدر بلغت 40% دون بيان رسمي',
+              status: 'المتحدث غير محدد — مراجعة إلزامية',
+              type: 'review-req',
+            },
+          ],
+          attribution_flags: [
+            {
+              claim: 'يُقال إن نسبة الهدر في مشاريع المياه بمدينة الديوانية بلغت 40%',
+              attributedTo: null,
+              confidence: 'unattributed',
+            },
+          ],
+          formats: {
+            radio:
+              'أفادت أحاديث متداولة في الديوانية بأن نسبة الهدر في مشاريع المياه بلغت 40% خلال الشهر الماضي، من دون صدور بيان رسمي من مديرية ماء الديوانية.',
+            web: 'تداولت أوساط محلية في الديوانية ادعاءات غير رسمية بأن نسبة الهدر في مشاريع المياه بلغت 40%.',
+            facebook: 'أحاديث غير رسمية عن هدر بنسبة 40% في مياه الديوانية بانتظار توضيح رسمي.',
+            urgent: '',
+          },
+          editorial_notes: 'الخبر يتضمن ادعاءً غير مسند لجهة رسمية.',
+          model_self_assessment: {
+            all_claims_sourced: false,
+            all_numbers_sourced: true,
+            // Even when model self-assessment falsely says false, server recomputes true from unattributed flag & review-req fact
+            has_unattributed_major_claim: false,
+            radio_fit_seconds: 25,
+          },
+        };
+
+        vi.spyOn(globalThis, 'fetch').mockImplementationOnce(async () =>
+          makeGeminiSuccessResponse(rumorAiPayload),
+        );
+
+        const extractRes = await api(`/api/stories/${id}/extract`, {
+          method: 'POST',
+          cookie,
+          body: { provider: 'gemini', model: 'gemini-2.5-flash' },
+        });
+        expect(extractRes.status).toBe(200);
+        const extractData = (await extractRes.json()) as StoryExtractResponseDto;
+
+        expect(extractData.story.hasBlocker).toBe(true);
+        expect(extractData.story.blockerReason).toContain('40%');
+
+        await api(`/api/stories/${id}/checks`, {
+          method: 'POST',
+          cookie,
+          body: { factsVerified: true, attributionVerified: true },
+        });
+        const approveRes = await api(`/api/stories/${id}/approve`, {
+          method: 'POST',
+          cookie,
+        });
+        expect(approveRes.status).toBe(422);
+      });
+    });
+
+    it('AI-EN-TO-AR: English source produces accurate Arabic newsroom drafts, preserves numbers across languages, and flags missing facts', async () => {
       await withProviderSecrets({ GEMINI_API_KEY: 'test-gemini-secret-key-999' }, async () => {
         const cookie = await loginCookie();
         const { id } = await createDraft(cookie, {
@@ -624,7 +846,8 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
         });
 
         const englishToArabicPayload = {
-          headline: 'يونيسف العراق: مبادرة حماية الأنهار تدعم 35 مجتمعاً محلياً وتوفر المياه لـ 12000 طفل',
+          headline:
+            'يونيسف العراق: مبادرة حماية الأنهار تدعم 35 مجتمعاً محلياً وتوفر المياه لـ 12000 طفل',
           facts: [
             {
               label: 'الجهة المصدرة',
@@ -660,7 +883,8 @@ describe('NAS Newsroom AI — Red Team, Security & Editorial Safety Suite', () =
               'يونيسف العراق تطلق مبادرة لحماية الأنهار تدعم 35 مجتمعاً على نهر دجلة وتوفر مياه شرب نقية لـ 12000 طفل.',
             urgent: '',
           },
-          editorial_notes: 'ترجمة تحريرية دقيقة من البيان الإنجليزي مع الحفاظ على الأرقام والإسناد.',
+          editorial_notes:
+            'ترجمة تحريرية دقيقة من البيان الإنجليزي مع الحفاظ على الأرقام والإسناد.',
           model_self_assessment: {
             all_claims_sourced: true,
             all_numbers_sourced: true,
