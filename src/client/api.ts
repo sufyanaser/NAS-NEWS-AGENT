@@ -1,5 +1,5 @@
 /** Thin fetch wrapper. Every request is same-origin and carries the CSRF header (Specs §12.3). */
-import type { StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
+import type { ImportResponse, StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
 
 export class ApiError extends Error {
   constructor(
@@ -55,4 +55,6 @@ export const api = {
   patchStory: (id: string, fields: StoryPatchBody) => request<{ story: StoryDto }>('PATCH', `/api/stories/${id}`, fields),
   listDrafts: (limit = 10) =>
     request<{ stories: StorySummaryDto[] }>('GET', `/api/stories?status=${encodeURIComponent('مسودة')}&limit=${limit}`),
+  importSource: (id: string, url: string) =>
+    request<ImportResponse>('POST', `/api/stories/${id}/import`, { url }),
 };

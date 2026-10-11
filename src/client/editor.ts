@@ -76,6 +76,9 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   const textArea = h('textarea', { id: 'f-source-text', class: 'textarea', placeholder: 'الصق النص الكامل للخبر من المصدر هنا…' });
   const counter = h('span', { class: 'note', id: 'char-counter' }, '0 حرف');
 
+  const importButton = h('button', { type: 'button', id: 'btn-import', class: 'btn btn-sm' }, 'قراءة الرابط');
+  const importBox = h('div', { id: 'import-status', class: 'alert', role: 'alert', hidden: true });
+
   const inputs: Record<FieldKey, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = {
     sourceName: nameInput,
     sourceUrl: urlInput,
@@ -96,17 +99,25 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
 
   const draftsHost = h('section', { class: 'card', id: 'drafts-card' });
 
+  const urlFieldContainer = h(
+    'div',
+    { class: 'field' },
+    h('label', { class: 'label', for: 'f-source-url' }, h('span', {}, 'رابط المصدر'), h('span', { class: 'hint' }, 'يدعم روابط HTTPS المباشرة؛ إذا تعذّرت القراءة يمكنك لصق النص يدوياً')),
+    h('div', { class: 'input-with-button' }, urlInput, importButton),
+  );
+
   const card = h(
     'article',
     { class: 'card' },
     h('div', { class: 'card-head' }, h('div', {}, title, subtitle), statusBadge),
     lockedNote,
-    field('رابط المصدر', urlInput, 'يُحفظ كما كُتب، ولا يُقرأ آلياً في هذه المرحلة'),
+    urlFieldContainer,
+    importBox,
     h('div', { class: 'grid-meta' }, field('اسم المصدر / الجهة', nameInput), field('تاريخ النشر', dateInput), field('تصنيف الخبر', categorySelect), field('لغة المادة الأصلية', langSelect)),
     h('div', { class: 'field' }, h('label', { class: 'label', for: 'f-source-text' }, h('span', {}, 'النص الأصلي للمادة الخبرية'), h('span', { class: 'hint' }, 'المرجع الوحيد لاستخراج الحقائق لاحقاً')), textArea, counter),
     errorBox,
     h('div', { class: 'save-bar' }, stateLabel, h('div', { class: 'stack-row' }, retryButton, saveButton)),
-    h('p', { class: 'note' }, 'استخراج الحقائق والصياغة والاعتماد تُضاف في مراحل لاحقة؛ هذه الشاشة تحفظ المسودة فقط.'),
+    h('p', { class: 'note' }, 'استخراج الحقائق والصياغة والاعتماد تُضاف في مراحل لاحقة؛ هذه الشاشة تحفظ المسودة وتستورد النص بأمان.'),
   );
   container.append(card, draftsHost);
 
@@ -222,10 +233,67 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     schedule(AUTOSAVE_DEBOUNCE_MS);
   }
 
+  async function handleImport(): Promise<void> {
+    const rawUrl = urlInput.value.trim();
+    if (!rawUrl) {
+      importBox.hidden = false;
+      importBox.className = 'alert alert-warn';
+      importBox.textContent = 'يرجى إدخال رابط المصدر أولاً.';
+      return;
+    }
+    if (!rawUrl.startsWith('https://')) {
+      importBox.hidden = false;
+      importBox.className = 'alert alert-warn';
+      importBox.textContent = 'نقبل روابط HTTPS المباشرة فقط لحماية النظام.';
+      return;
+    }
+
+    // Flush any pending draft save so story has an ID before calling /import
+    if (id === null) {
+      await save();
+    }
+    if (id === null) {
+      importBox.hidden = false;
+      importBox.className = 'alert alert-danger';
+      importBox.textContent = 'تعذّر إنشاء المسودة لحفظ الرابط. حاول مجدداً.';
+      return;
+    }
+
+    importButton.disabled = true;
+    const prevBtnText = importButton.textContent;
+    importButton.textContent = 'جارٍ القراءة…';
+    importBox.hidden = false;
+    importBox.className = 'alert alert-info';
+    importBox.textContent = 'جارٍ الاتصال بالمصدر واستخراج النص…';
+
+    try {
+      const res = await api.importSource(id, rawUrl);
+      if (res.ok) {
+        importBox.className = 'alert alert-info';
+        importBox.textContent = res.importMessage || 'تم استيراد نص المادة بنجاح.';
+        textArea.value = res.sourceText;
+        updateCounter();
+        version++;
+        schedule(500); // trigger quick autosave of the imported text
+      } else {
+        // Failure: alert editor with friendly Arabic message, NEVER touch existing textArea content
+        importBox.className = 'alert alert-warn';
+        importBox.textContent = res.importMessage || 'تعذّرت قراءة الرابط. يرجى لصق نص الخبر يدوياً في الخانة أدناه.';
+      }
+    } catch {
+      importBox.className = 'alert alert-danger';
+      importBox.textContent = 'تعذّر الاتصال بخادم التحرير لإتمام الاستيراد. يمكنك لصق النص يدوياً.';
+    } finally {
+      importButton.disabled = readOnly;
+      importButton.textContent = prevBtnText;
+    }
+  }
+
   for (const k of FIELD_KEYS) {
     inputs[k].addEventListener('input', onInput);
     inputs[k].addEventListener('change', onInput);
   }
+  importButton.addEventListener('click', () => void handleImport());
   saveButton.addEventListener('click', () => void save());
   retryButton.addEventListener('click', () => void save());
 
@@ -298,6 +366,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       readOnly = true;
       lockedNote.hidden = false;
       for (const k of FIELD_KEYS) inputs[k].disabled = true;
+      importButton.disabled = true;
     }
     setState('saved', s.updatedAt);
   }

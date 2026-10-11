@@ -54,6 +54,8 @@ button { cursor: pointer; }
 .input, .select, .textarea { width: 100%; border: 1px solid var(--border-strong); background: #fff; border-radius: var(--r-md);
   padding: 9px 12px; }
 .input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--border-focus); outline-offset: 0; border-color: var(--border-focus); }
+.input-with-button { display: flex; gap: 8px; align-items: stretch; }
+.input-with-button .input { flex: 1; }
 .textarea { min-height: 280px; resize: vertical; line-height: 1.8; }
 .grid-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); gap: 14px; margin: 14px 0; }
 .stack { display: flex; flex-direction: column; gap: 14px; }

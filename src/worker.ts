@@ -1,7 +1,7 @@
-﻿import { authenticate, login, logout } from './server/auth';
+import { authenticate, login, logout } from './server/auth';
 import type { Env } from './server/env';
 import { HttpError, errorResponse, json } from './server/http';
-import { STORY_ID_RE, createStory, getStory, listStories, patchStory } from './server/stories';
+import { STORY_ID_RE, createStory, getStory, importStorySource, listStories, patchStory } from './server/stories';
 
 const SAFE_METHODS = new Set(['GET', 'HEAD']);
 
@@ -47,14 +47,22 @@ async function route(request: Request, env: Env): Promise<Response> {
     else if (method === 'POST') response = await createStory(request, env);
     else methodNotAllowed();
   } else {
-    const m = /^\/api\/stories\/([^/]+)$/.exec(path);
-    if (!m) throw new HttpError(404, 'not_found');
-    const id = m[1] ?? '';
-    if (!STORY_ID_RE.test(id)) throw new HttpError(404, 'not_found');
-    if (method === 'GET') response = await getStory(env, id);
-    else if (method === 'PATCH') response = await patchStory(request, env, id);
-    // DELETE is intentionally unavailable in MVP 1.0 (Specs Â§3.2, no permanent deletion).
-    else methodNotAllowed();
+    const importMatch = /^\/api\/stories\/([^/]+)\/import$/.exec(path);
+    if (importMatch) {
+      const id = importMatch[1] ?? '';
+      if (!STORY_ID_RE.test(id)) throw new HttpError(404, 'not_found');
+      if (method !== 'POST') methodNotAllowed();
+      response = await importStorySource(request, env, id);
+    } else {
+      const m = /^\/api\/stories\/([^/]+)$/.exec(path);
+      if (!m) throw new HttpError(404, 'not_found');
+      const id = m[1] ?? '';
+      if (!STORY_ID_RE.test(id)) throw new HttpError(404, 'not_found');
+      if (method === 'GET') response = await getStory(env, id);
+      else if (method === 'PATCH') response = await patchStory(request, env, id);
+      // DELETE is intentionally unavailable in MVP 1.0 (Specs §3.2, no permanent deletion).
+      else methodNotAllowed();
+    }
   }
 
   if (auth.refreshedCookie) response.headers.append('Set-Cookie', auth.refreshedCookie);

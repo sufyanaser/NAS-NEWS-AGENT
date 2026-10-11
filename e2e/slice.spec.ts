@@ -241,6 +241,57 @@ test.describe('draft persistence', () => {
   });
 });
 
+test.describe('secure source import & manual fallback (SC-02)', () => {
+  test('import failure shows friendly Arabic message and preserves manual text (SC-02)', async ({ page }) => {
+    await login(page);
+    const manualStory = 'تقرير ميداني عن شح المياه في الديوانية تم إدخاله يدوياً من قبل المحرر.';
+
+    // 1) Fill URL that triggers a blocked failure (e.g. metadata or loopback IP)
+    await page.locator('#f-source-url').fill('https://127.0.0.1/article');
+    // Pre-fill manual text to ensure it is not lost
+    await page.locator('#f-source-text').fill(manualStory);
+
+    // 2) Click "قراءة الرابط"
+    await page.locator('#btn-import').click();
+
+    // 3) Import status alert appears with friendly message
+    const alert = page.locator('#import-status');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('يمنع');
+
+    // 4) Verify manual text is completely preserved
+    await expect(page.locator('#f-source-text')).toHaveValue(manualStory);
+    await expect(page.locator('#f-source-url')).toHaveValue('https://127.0.0.1/article');
+  });
+
+  test('successful import populates textarea and updates character counter', async ({ page }) => {
+    await login(page);
+
+    // Mock the backend import response to simulate successful external fetch
+    await page.route('**/api/stories/*/import', (route) => {
+      return route.fulfill({
+        status: 200,
+        contentType: 'application/json',
+        body: JSON.stringify({
+          ok: true,
+          sourceText: 'أعلنت منظمة يونيسف في تقرير رسمي عن تفاقم شح المياه في محافظة الديوانية.',
+          importMessage: 'تمت قراءة نص المادة بنجاح من المصدر.',
+        }),
+      });
+    });
+
+    await page.locator('#f-source-url').fill('https://ina.iq/water-crisis');
+    await page.locator('#btn-import').click();
+
+    const alert = page.locator('#import-status');
+    await expect(alert).toBeVisible();
+    await expect(alert).toContainText('تم');
+
+    await expect(page.locator('#f-source-text')).toHaveValue('أعلنت منظمة يونيسف في تقرير رسمي عن تفاقم شح المياه في محافظة الديوانية.');
+    await expect(page.locator('#char-counter')).not.toHaveText('0 حرف');
+  });
+});
+
 test.describe('layout', () => {
   test('editor screen has no horizontal overflow, clipped controls, or placeholder buttons', async ({ page }) => {
     await login(page);
@@ -248,7 +299,7 @@ test.describe('layout', () => {
     await expectControlsInsideViewport(page);
     const labels = await page.locator('button:visible').allTextContents();
     // Only real, working actions exist in this slice.
-    expect(labels.map((l) => l.trim()).sort()).toEqual(['تسجيل الخروج', 'حفظ المسودة']);
+    expect(labels.map((l) => l.trim()).sort()).toEqual(['تسجيل الخروج', 'حفظ المسودة', 'قراءة الرابط'].sort());
     // Short fields must not stretch across the whole page on large screens.
     const w = await page.locator('#f-publish-date').evaluate((e) => e.getBoundingClientRect().width);
     expect(w).toBeLessThanOrEqual(300);

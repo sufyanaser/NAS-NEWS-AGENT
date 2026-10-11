@@ -1,8 +1,9 @@
-/** Stories — draft creation, partial update (autosave), restore. Specs §3.2, §10. */
+/** Stories — draft creation, partial update (autosave), restore, and source import. Specs §3.2, §3.3, §9, §10. */
 import { CATEGORIES, LIMITS, SOURCE_LANGS, STORY_STATUS_DRAFT } from '../shared/contracts';
 import type { StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
 import type { Env } from './env';
 import { HttpError, json, readJson } from './http';
+import { fetchAndExtractSource } from './importer';
 
 interface StoryRow {
   id: string;
@@ -57,9 +58,7 @@ function str(body: Record<string, unknown>, key: keyof StoryPatchBody, max: numb
 }
 
 /**
- * Validates only what is present. The URL is stored as typed (length-limited, no control chars): strict
- * URL/SSRF validation belongs to the import step, and rejecting half-typed URLs here would make autosave
- * of the *text* fail.
+ * Validates only what is present. The URL is stored as typed (length-limited, no control chars).
  */
 export function parsePatch(body: Record<string, unknown>): StoryPatchBody {
   const patch: StoryPatchBody = {};
@@ -117,7 +116,6 @@ async function buildUpdate(env: Env, id: string, patch: StoryPatchBody, now: str
 }
 
 export async function createStory(request: Request, env: Env): Promise<Response> {
-  // Body is optional; a client may create the draft with its first fields in one request.
   const text = await request.text();
   let patch: StoryPatchBody = {};
   if (text.trim() !== '') {
@@ -197,4 +195,70 @@ export async function listStories(url: URL, env: Env): Promise<Response> {
     updatedAt: r.updated_at,
   }));
   return json({ stories });
+}
+
+/**
+ * Handles POST /api/stories/:id/import (Specs §3.3, §9)
+ * Body: { url: string }
+ */
+export async function importStorySource(
+  request: Request,
+  env: Env,
+  id: string,
+  fetchFn: typeof fetch = fetch,
+): Promise<Response> {
+  const body = await readJson(request);
+  const urlVal = body.url;
+  if (typeof urlVal !== 'string' || !urlVal.trim()) {
+    throw bad('url');
+  }
+  const cleanUrl = urlVal.trim();
+  if (cleanUrl.length > LIMITS.sourceUrl) {
+    throw bad('url');
+  }
+
+  const row = await env.DB.prepare('SELECT status, source_url, source_text FROM stories WHERE id = ?')
+    .bind(id)
+    .first<{ status: string; source_url: string | null; source_text: string }>();
+
+  if (!row) throw new HttpError(404, 'not_found');
+  if (!EDITABLE_STATUSES.includes(row.status)) throw new HttpError(409, 'invalid_transition');
+
+  // Attempt the safe import
+  const result = await fetchAndExtractSource(cleanUrl, fetchFn);
+  const now = new Date().toISOString();
+
+  if (result.ok) {
+    // On success: save the URL, source_text, import_failed=0, and import_message
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE stories SET source_url = ?, source_text = ?, import_failed = 0, import_message = ?, updated_at = ? WHERE id = ?`,
+      ).bind(cleanUrl, result.sourceText, result.importMessage, now, id),
+      env.DB.prepare(
+        `INSERT INTO story_events (story_id, event_type, detail, created_at) VALUES (?, ?, ?, ?)`,
+      ).bind(id, 'import_attempted', JSON.stringify({ ok: true, url: cleanUrl }), now),
+    ]);
+
+    return json({
+      ok: true,
+      sourceText: result.sourceText,
+      importMessage: result.importMessage,
+    });
+  } else {
+    // On expected failure: preserve source_url, DO NOT overwrite source_text, record import_failed=1
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE stories SET source_url = ?, import_failed = 1, import_message = ?, updated_at = ? WHERE id = ?`,
+      ).bind(cleanUrl, result.importMessage, now, id),
+      env.DB.prepare(
+        `INSERT INTO story_events (story_id, event_type, detail, created_at) VALUES (?, ?, ?, ?)`,
+      ).bind(id, 'import_attempted', JSON.stringify({ ok: false, failureClass: result.failureClass, url: cleanUrl }), now),
+    ]);
+
+    return json({
+      ok: false,
+      failureClass: result.failureClass,
+      importMessage: result.importMessage,
+    });
+  }
 }
