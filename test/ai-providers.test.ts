@@ -30,17 +30,20 @@ function makeEnv(overrides: Partial<Env> = {}): Env {
 }
 
 describe('AI Catalog & Helpers', () => {
-  it('contains verified active models for all 4 providers with pricing metadata', () => {
+  it('contains verified active models for all 4 providers with non-guaranteed free quota pricing notes and no experimental (-exp) IDs', () => {
     const providers: AIProviderId[] = ['gemini', 'openai', 'anthropic', 'openrouter'];
     for (const provider of providers) {
       const models = MODEL_CATALOG.filter((m) => m.provider === provider);
       expect(models.length).toBeGreaterThanOrEqual(2);
       for (const m of models) {
         expect(m.available).toBe(true);
+        expect(m.id).not.toContain('-exp');
         expect(m.pricing.verifiedAt).toBe('2026-10-11');
-        expect(m.pricing.pricingNote.length).toBeGreaterThan(10);
+        expect(m.pricing.pricingNote).toContain('مضمونة');
       }
     }
+    expect(getModelCatalogItem('anthropic', 'claude-haiku-4-5-20251001')?.available).toBe(true);
+    expect(getModelCatalogItem('openrouter', 'google/gemma-3-27b-it:free')?.available).toBe(true);
   });
 
   it('normalizes provider IDs from diverse inputs and defaults to gemini', () => {
@@ -60,11 +63,18 @@ describe('AI Catalog & Helpers', () => {
     expect(normalizeProviderId(undefined)).toBe('gemini');
   });
 
-  it('resolves valid models per provider and falls back when model belongs to another provider', () => {
+  it('resolves valid models per provider, allows custom/legacy IDs, and falls back when model belongs to another provider', () => {
     expect(resolveModelId('gemini', 'gemini-2.5-pro')).toBe('gemini-2.5-pro');
     expect(resolveModelId('gemini', '')).toBe(DEFAULT_MODEL_BY_PROVIDER.gemini);
     expect(resolveModelId('openai', 'gemini-2.5-flash')).toBe(DEFAULT_MODEL_BY_PROVIDER.openai);
     expect(resolveModelId('anthropic', 'gpt-4.1-mini')).toBe(DEFAULT_MODEL_BY_PROVIDER.anthropic);
+    expect(resolveModelId('anthropic', 'claude-haiku-4-5-20251001')).toBe(
+      'claude-haiku-4-5-20251001',
+    );
+    expect(resolveModelId('anthropic', 'claude-3-5-haiku-latest')).toBe('claude-3-5-haiku-latest');
+    expect(resolveModelId('openrouter', 'google/gemma-3-27b-it:free')).toBe(
+      'google/gemma-3-27b-it:free',
+    );
     expect(resolveModelId('openrouter', 'qwen/qwen-2.5-72b-instruct:free')).toBe(
       'qwen/qwen-2.5-72b-instruct:free',
     );

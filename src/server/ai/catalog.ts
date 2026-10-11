@@ -51,7 +51,7 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 0.6,
       isFreeTier: true,
       pricingNote:
-        'متاح ضمن الطبقة المجانية في Google AI Studio (مع حدود استخدام يومية) أو 0.15$ / 0.60$ لكل مليون توكن في الطبقة المدفوعة',
+        'الحصة المجانية في Google AI Studio غير مضمونة وتخضع لأهلية الحساب وحدود الطلبات اليومية (Rate Limits)؛ وفي الطبقة المدفوعة 0.15$ للمدخلات / 0.60$ للمخرجات لكل مليون توكن',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'الاستخراج التحريري اليومي والصياغة الإذاعية السريعة',
@@ -67,7 +67,7 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 0.3,
       isFreeTier: true,
       pricingNote:
-        'متاح مجاناً في Google AI Studio ضمن حدود الاستخدام أو بتكلفة منخفضة جداً 0.075$ / 0.30$ لكل مليون توكن',
+        'الحصة المجانية في Google AI Studio غير مضمونة وتخضع لأهلية الحساب وحدود الاستخدام؛ وفي الطبقة المدفوعة 0.075$ للمدخلات / 0.30$ للمخرجات لكل مليون توكن',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'الأخبار القصيرة والمعالجة السريعة منخفضة التكلفة',
@@ -83,7 +83,7 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 10.0,
       isFreeTier: false,
       pricingNote:
-        '1.25$ للمدخلات / 10.00$ للمخرجات لكل مليون توكن (وتتوفر حصة تجريبية محدودة في AI Studio)',
+        'مدفوع حسب الاستخدام: 1.25$ للمدخلات / 10.00$ للمخرجات لكل مليون توكن (الحصة المجانية غير مضمونة وتتطلب تفعيل الفوترة أو أهلية AI Studio)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'التقارير المركبة والترجمة التحريرية الدقيقة من الإنجليزية',
@@ -99,7 +99,7 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 1.6,
       isFreeTier: false,
       pricingNote:
-        'مدفوع حسب الاستخدام: 0.40$ للمدخلات / 1.60$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية دائمة في OpenAI API)',
+        'مدفوع حسب الاستخدام: 0.40$ للمدخلات / 1.60$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية مضمونة في OpenAI API ويتطلب رصيداً فعالاً)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'الصياغة الإخبارية السريعة والالتزام الصارم بمخطط JSON',
@@ -114,7 +114,8 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       inputPerMillionUsd: 2.0,
       outputPerMillionUsd: 8.0,
       isFreeTier: false,
-      pricingNote: 'مدفوع حسب الاستخدام: 2.00$ للمدخلات / 8.00$ للمخرجات لكل مليون توكن',
+      pricingNote:
+        'مدفوع حسب الاستخدام: 2.00$ للمدخلات / 8.00$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية مضمونة في OpenAI API ويتطلب رصيداً فعالاً)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'التحرير الإذاعي المتقدم ومطابقة الإسناد الصارمة',
@@ -129,7 +130,8 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       inputPerMillionUsd: 0.15,
       outputPerMillionUsd: 0.6,
       isFreeTier: false,
-      pricingNote: 'مدفوع حسب الاستخدام: 0.15$ للمدخلات / 0.60$ للمخرجات لكل مليون توكن',
+      pricingNote:
+        'مدفوع حسب الاستخدام: 0.15$ للمدخلات / 0.60$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية مضمونة في OpenAI API ويتطلب رصيداً فعالاً)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'المعالجة الاقتصادية السريعة',
@@ -145,22 +147,23 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 15.0,
       isFreeTier: false,
       pricingNote:
-        'مدفوع حسب الاستخدام: 3.00$ للمدخلات / 15.00$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية في Anthropic API)',
+        'مدفوع حسب الاستخدام: 3.00$ للمدخلات / 15.00$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية مضمونة في Anthropic API ويتطلب رصيداً مسبق الدفع)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'الصياغة العربية الرصينة وتحليل المصادر الطويلة',
     available: true,
   },
   {
-    id: 'claude-3-5-haiku-20241022',
+    id: 'claude-haiku-4-5-20251001',
     provider: 'anthropic',
-    label: 'Claude 3.5 Haiku (سريع واقتصادي)',
+    label: 'Claude Haiku 4.5 (سريع واقتصادي)',
     tier: 'paid',
     pricing: {
-      inputPerMillionUsd: 0.8,
-      outputPerMillionUsd: 4.0,
+      inputPerMillionUsd: 1.0,
+      outputPerMillionUsd: 5.0,
       isFreeTier: false,
-      pricingNote: 'مدفوع حسب الاستخدام: 0.80$ للمدخلات / 4.00$ للمخرجات لكل مليون توكن',
+      pricingNote:
+        'مدفوع حسب الاستخدام: 1.00$ للمدخلات / 5.00$ للمخرجات لكل مليون توكن (لا توجد طبقة مجانية مضمونة في Anthropic API ويتطلب رصيداً مسبق الدفع)',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'الاستخراج السريع للمسودات اليومية',
@@ -176,22 +179,23 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       outputPerMillionUsd: 0,
       isFreeTier: true,
       pricingNote:
-        'مجاني (0.00$) عبر OpenRouter مع حدود معدل طلبات (Rate Limits) تخضع لتوافر المزود',
+        'الحصة المجانية (0.00$) عبر OpenRouter غير مضمونة وتخضع لحدود معدل الطلبات (Rate Limits) وأهلية المزود وتوافر السعة',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'التجربة المجانية والتوليد الاحتياطي',
     available: true,
   },
   {
-    id: 'google/gemini-2.0-flash-exp:free',
+    id: 'google/gemma-3-27b-it:free',
     provider: 'openrouter',
-    label: 'Gemini 2.0 Flash Exp (مجاني عبر OpenRouter)',
+    label: 'Gemma 3 27B Instruct (مجاني عبر OpenRouter)',
     tier: 'free',
     pricing: {
       inputPerMillionUsd: 0,
       outputPerMillionUsd: 0,
       isFreeTier: true,
-      pricingNote: 'مجاني (0.00$) عبر OpenRouter ضمن حدود الاستخدام التجريبية',
+      pricingNote:
+        'الحصة المجانية (0.00$) عبر OpenRouter غير مضمونة وتخضع لحدود معدل الطلبات اليومية (Rate Limits) وتوافر المزود',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'التوليد السريع المجاني عبر بوابة موحدة',
@@ -206,7 +210,8 @@ export const MODEL_CATALOG: readonly AIModelCatalogItemDto[] = [
       inputPerMillionUsd: 0,
       outputPerMillionUsd: 0,
       isFreeTier: true,
-      pricingNote: 'مجاني (0.00$) عبر OpenRouter ضمن حدود الطلبات اليومية',
+      pricingNote:
+        'الحصة المجانية (0.00$) عبر OpenRouter غير مضمونة وتخضع لحدود الطلبات اليومية (Rate Limits) وأهلية الحساب',
       verifiedAt: '2026-10-11',
     },
     recommendedFor: 'المعالجة العربية متعددة الصيغ بدون تكلفة',
