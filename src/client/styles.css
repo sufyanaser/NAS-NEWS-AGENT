@@ -754,8 +754,16 @@ button { cursor: pointer; }
   flex-direction: column;
   gap: 4px;
   min-height: 0;
+  max-height: 175px;
+  overflow-y: auto;
 }
 .review-facts-card .card-title {
+  white-space: nowrap;
+}
+#ai-disconnected-notice {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .facts-list {
@@ -1074,7 +1082,14 @@ button { cursor: pointer; }
    9. SETTINGS & LOGIN
    ========================================================================== */
 .page-settings .stack {
-  gap: 12px;
+  gap: 10px;
+}
+.page-settings .card {
+  padding: 13px 16px;
+}
+#setting-model-pricing-note {
+  margin: 4px 0 8px;
+  line-height: 1.45;
 }
 .login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
 .login-box { width: 100%; max-width: 390px; }
@@ -1105,6 +1120,7 @@ button { cursor: pointer; }
   .source-sticky-card { height: auto; max-height: none; }
   .source-reading-box { max-height: 50vh; }
   .editorial-stack { height: auto; display: flex; flex-direction: column; gap: 12px; }
+  .review-facts-card { max-height: none; overflow-y: visible; }
   .facts-list { max-height: 180px; }
   .review-fit-textarea { min-height: 220px; }
   .mobile-pane-switcher { display: grid; }

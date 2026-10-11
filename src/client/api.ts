@@ -1,13 +1,18 @@
 /** Thin fetch wrapper. Every request is same-origin and carries the CSRF header (Specs §12.3). */
 import type {
+  AIProviderStatusDto,
   FormatKey,
   ImportResponse,
   SettingsDto,
   SettingsPutBody,
   StoryChecks,
   StoryDto,
+  StoryExtractRequestDto,
+  StoryExtractResponseDto,
   StoryListResponse,
   StoryPatchBody,
+  TestModelRequestDto,
+  TestModelResponseDto,
 } from '../shared/contracts';
 
 export class ApiError extends Error {
@@ -84,6 +89,8 @@ export const api = {
   },
   importSource: (id: string, url: string) =>
     request<ImportResponse>('POST', `/api/stories/${id}/import`, { url }),
+  extractStory: (id: string, options?: StoryExtractRequestDto) =>
+    request<StoryExtractResponseDto>('POST', `/api/stories/${id}/extract`, options ?? {}),
   startReview: (id: string) =>
     request<{ story: StoryDto }>('POST', `/api/stories/${id}/start-review`, {}),
   updateChecks: (id: string, checks: Partial<StoryChecks>) =>
@@ -100,4 +107,8 @@ export const api = {
     request<{ settings: SettingsDto }>('GET', '/api/settings'),
   putSettings: (settings: SettingsPutBody) =>
     request<{ settings: SettingsDto }>('PUT', '/api/settings', settings),
+  testModel: (options?: TestModelRequestDto) =>
+    request<TestModelResponseDto>('POST', '/api/settings/test-model', options ?? {}),
+  getAICatalog: () =>
+    request<{ providers: AIProviderStatusDto[] }>('GET', '/api/ai/catalog'),
 };

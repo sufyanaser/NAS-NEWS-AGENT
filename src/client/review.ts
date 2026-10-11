@@ -57,6 +57,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
   let debounceTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   let readOnly = false;
+  let aiExtracting = false;
 
   // Local editable state
   let headlineVal = '';
@@ -251,7 +252,40 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
   );
 
   const factsSummaryBadge = h('span', { class: 'badge', id: 'facts-summary-badge' }, '0 حقائق موثقة');
+  const aiGenerateBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn-sm btn-primary', id: 'btn-ai-generate' },
+    '✨ توليد بالذكاء الاصطناعي',
+  );
   const factsListHost = h('div', { class: 'facts-list', id: 'facts-list-container' });
+
+  // AI Overwrite Confirmation Box & AI Insights Box
+  const aiFillEmptyBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn-sm btn-primary', id: 'btn-ai-fill-empty' },
+    'توليد الفارغ فقط',
+  );
+  const aiOverwriteAllBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn-sm btn-danger-outline', id: 'btn-ai-overwrite-all' },
+    'استبدال الكل',
+  );
+  const aiCancelOverwriteBtn = h(
+    'button',
+    { type: 'button', class: 'btn btn-sm', id: 'btn-ai-cancel-overwrite' },
+    'إلغاء',
+  );
+  const aiOverwriteConfirmBox = h(
+    'div',
+    { class: 'alert alert-warn compact-alert', id: 'ai-overwrite-confirm-box', hidden: true },
+    h('span', {}, 'توجد صياغات محررة حالياً. كيف ترغب في المتابعة؟'),
+    h('div', { class: 'stack-row' }, aiFillEmptyBtn, aiOverwriteAllBtn, aiCancelOverwriteBtn),
+  );
+
+  const aiInsightsBox = h(
+    'div',
+    { class: 'alert alert-info compact-alert', id: 'ai-insights-box', hidden: true },
+  );
 
   // Add Fact form
   const newFactLabel = h('input', { type: 'text', class: 'input input-sm', id: 'input-fact-label', placeholder: 'العنصر (مثال: الأرقام، المتحدث)' });
@@ -297,9 +331,11 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
         h('h2', { class: 'card-title' }, 'الحقائق والنواقص'),
         aiStatusBanner,
       ),
-      h('div', { class: 'stack-row' }, factsSummaryBadge, flagBlockerBtn),
+      h('div', { class: 'stack-row' }, factsSummaryBadge, aiGenerateBtn, flagBlockerBtn),
     ),
     blockerBox,
+    aiOverwriteConfirmBox,
+    aiInsightsBox,
     factsListHost,
     addFactRow,
   );
@@ -654,6 +690,25 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     }
   }
 
+  function hasExistingEditorialContent(): boolean {
+    if (headlineInput.value.trim().length > 0) return true;
+    const currentFmtVal = formatTextarea.value.trim();
+    if (currentFmtVal.length > 0) return true;
+    return FORMAT_KEYS.some((k) => (formatsVal[k] ?? '').trim().length > 0);
+  }
+
+  function updateAiButtonLabel(): void {
+    if (aiExtracting) {
+      aiGenerateBtn.textContent = 'جارٍ التوليد…';
+      aiGenerateBtn.disabled = true;
+      return;
+    }
+    aiGenerateBtn.disabled = readOnly;
+    aiGenerateBtn.textContent = hasExistingEditorialContent()
+      ? '↻ إعادة التوليد (AI)'
+      : '✨ توليد بالذكاء الاصطناعي';
+  }
+
   function applyStoryToWorkspace(s: StoryDto): void {
     story = s;
     readOnly = !EDITABLE_STATUSES.includes(s.status);
@@ -669,6 +724,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
     formatsVal = { ...s.formats };
     confirmedFormats = { ...s.formats };
+    formatTextarea.value = formatsVal[activeFormat] ?? '';
 
     selectedFormatsVal = s.selectedFormats.length > 0 ? [...s.selectedFormats] : ['radio', 'web', 'facebook'];
     confirmedSelectedFormats = [...selectedFormatsVal];
@@ -703,9 +759,14 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     excludeTriggerBtn.disabled = readOnly;
     saveDraftBtn.disabled = readOnly;
 
+    if (s.aiMetadata?.usage) {
+      aiStatusBanner.textContent = `آخر توليد AI: ${s.aiMetadata.usage.model} (${s.aiMetadata.usage.totalTokens} توكن • ${s.aiMetadata.usage.latencyMs}ms)`;
+    }
+
     switchFormatTab(activeFormat);
     renderFactsList();
     renderBlockerAndApprovalState();
+    updateAiButtonLabel();
 
     opts.onStoryUpdated?.({
       id: s.id,
@@ -814,10 +875,91 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     headlineVal = headlineInput.value;
     version++;
     updateMeters();
+    updateAiButtonLabel();
     setState('saving');
     clearTimeout(debounceTimer);
     debounceTimer = setTimeout(() => void save(), AUTOSAVE_DEBOUNCE_MS);
   }
+
+  async function handleAiExtract(overwriteExisting: boolean): Promise<void> {
+    if (!id || readOnly || aiExtracting) return;
+    aiOverwriteConfirmBox.hidden = true;
+    aiInsightsBox.hidden = true;
+    aiExtracting = true;
+    updateAiButtonLabel();
+
+    try {
+      await save();
+      const res = await api.extractStory(id, { overwriteExisting });
+      if (disposed) return;
+
+      applyStoryToWorkspace(res.story);
+      aiStatusBanner.textContent = `آخر توليد AI: ${res.usage.model} (${res.usage.totalTokens} توكن • ${res.usage.latencyMs}ms)`;
+
+      const parts: string[] = [
+        `تم التوليد الآلي (${res.usage.model} • ${res.usage.totalTokens} توكن • ${res.usage.latencyMs}ms).`,
+      ];
+      if (res.editorialNotes?.trim()) {
+        parts.push(`ملاحظات تحريرية: ${res.editorialNotes.trim()}`);
+      }
+      if (res.preservedManualFormats && res.preservedManualFormats.length > 0) {
+        parts.push('تم الحفاظ على الصياغات المحررة يدوياً.');
+      }
+      if (res.numberWarnings && res.numberWarnings.length > 0) {
+        parts.push(`تنبيهات مطابقة الأرقام: ${res.numberWarnings.join(' — ')}`);
+        aiInsightsBox.className = 'alert alert-warn compact-alert';
+      } else {
+        aiInsightsBox.className = 'alert alert-info compact-alert';
+      }
+      aiInsightsBox.textContent = parts.join(' | ');
+      aiInsightsBox.hidden = false;
+    } catch (err) {
+      if (disposed) return;
+      if (err instanceof ApiError && err.isUnauthenticated) {
+        opts.onSessionLost();
+        return;
+      }
+      const serverMsg =
+        err instanceof ApiError
+          ? ((err.detail as { message?: string } | null)?.message ?? undefined)
+          : undefined;
+      const fallbackMsg = 'تعذّر تشغيل التوليد الآلي حالياً. يمكنك متابعة التحرير اليدوي بشكل كامل.';
+      aiInsightsBox.className = 'alert alert-warn compact-alert';
+      aiInsightsBox.textContent = serverMsg
+        ? `${serverMsg} — يمكنك متابعة التحرير اليدوي بشكل كامل.`
+        : fallbackMsg;
+      aiInsightsBox.hidden = false;
+    } finally {
+      if (!disposed) {
+        aiExtracting = false;
+        updateAiButtonLabel();
+      }
+    }
+  }
+
+  aiGenerateBtn.addEventListener('click', () => {
+    if (readOnly || aiExtracting) return;
+    if (hasExistingEditorialContent()) {
+      aiOverwriteConfirmBox.hidden = false;
+    } else {
+      aiOverwriteConfirmBox.hidden = true;
+      void handleAiExtract(false);
+    }
+  });
+
+  aiFillEmptyBtn.addEventListener('click', () => {
+    aiOverwriteConfirmBox.hidden = true;
+    void handleAiExtract(false);
+  });
+
+  aiOverwriteAllBtn.addEventListener('click', () => {
+    aiOverwriteConfirmBox.hidden = true;
+    void handleAiExtract(true);
+  });
+
+  aiCancelOverwriteBtn.addEventListener('click', () => {
+    aiOverwriteConfirmBox.hidden = true;
+  });
 
   // ---- Event Listeners ------------------------------------------------------------------------
   headlineInput.addEventListener('input', triggerEdit);
