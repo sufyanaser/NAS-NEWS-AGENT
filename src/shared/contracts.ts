@@ -1,6 +1,19 @@
 /** Constants and DTOs shared between Worker and Client. */
 
 export const STORY_STATUS_DRAFT = 'مسودة';
+export const STORY_STATUS_REVIEW = 'قيد المراجعة';
+export const STORY_STATUS_APPROVED = 'معتمد';
+export const STORY_STATUS_PUBLISHED = 'منشور';
+export const STORY_STATUS_EXCLUDED = 'مستبعد';
+
+export const STORY_STATUSES = [
+  STORY_STATUS_DRAFT,
+  STORY_STATUS_REVIEW,
+  STORY_STATUS_APPROVED,
+  STORY_STATUS_PUBLISHED,
+  STORY_STATUS_EXCLUDED,
+] as const;
+export type StoryStatus = (typeof STORY_STATUSES)[number];
 
 export const SOURCE_LANGS = ['العربية', 'الإنجليزية'] as const;
 export const CATEGORIES = [
@@ -10,13 +23,27 @@ export const CATEGORIES = [
   'محلي',
   'سياسي',
   'اقتصادي',
+  'ثقافي',
+  'رياضي',
 ] as const;
+
+export const FORMAT_KEYS = ['radio', 'web', 'facebook', 'urgent'] as const;
+export type FormatKey = (typeof FORMAT_KEYS)[number];
+
+export const FORMAT_LABELS: Record<FormatKey, string> = {
+  radio: 'الموجز الإذاعي',
+  web: 'خبر الموقع',
+  facebook: 'منشور التواصل',
+  urgent: 'الشريط العاجل',
+};
 
 export const LIMITS = {
   sourceUrl: 2048,
   sourceName: 200,
+  headline: 300,
   /** Saving must never reject long pasted text; the 20,000-char cap applies at extraction time (Specs §7.2c). */
   sourceText: 100_000,
+  formatText: 50_000,
   /** Maximum bytes read from imported article body (Specs §9.2 #4). */
   maxImportBytes: 2 * 1024 * 1024,
   /** Minimum extracted text length for sufficiency (Specs §9.1). */
@@ -47,6 +74,27 @@ export interface ImportFailureResult {
 
 export type ImportResponse = ImportSuccessResult | ImportFailureResult;
 
+export type FactType = 'sourced' | 'missing' | 'review-req';
+
+export interface StoryFact {
+  label: string;
+  value: string;
+  status: string;
+  type: FactType;
+}
+
+export interface StoryFormats {
+  radio: string;
+  web: string;
+  facebook: string;
+  urgent: string;
+}
+
+export interface StoryChecks {
+  factsVerified: boolean;
+  attributionVerified: boolean;
+}
+
 export interface StoryDto {
   id: string;
   status: string;
@@ -56,17 +104,48 @@ export interface StoryDto {
   category: string;
   sourceLang: string;
   sourceText: string;
+  importFailed: boolean;
+  importMessage: string;
+  hasBlocker: boolean;
+  blockerReason: string;
+  headline: string;
+  urgentEnabled: boolean;
+  selectedFormats: FormatKey[];
+  formats: StoryFormats;
+  facts: StoryFact[];
+  checks: StoryChecks;
+  excludeReason: string;
   createdAt: string;
   updatedAt: string;
+  approvedAt: string | null;
+  publishedAt: string | null;
 }
 
 export interface StorySummaryDto {
   id: string;
   status: string;
+  headline: string;
   sourceName: string;
   sourceUrl: string;
+  publishDate: string;
+  category: string;
+  sourceLang: string;
   textPreview: string;
+  selectedFormats: FormatKey[];
+  urgentEnabled: boolean;
+  hasBlocker: boolean;
   updatedAt: string;
+}
+
+export interface ArchiveCountsDto {
+  total: number;
+  byFormat: Record<FormatKey, number>;
+  byStatus: Record<string, number>;
+}
+
+export interface StoryListResponse {
+  stories: StorySummaryDto[];
+  counts?: ArchiveCountsDto;
 }
 
 export interface StoryPatchBody {
@@ -76,4 +155,29 @@ export interface StoryPatchBody {
   category?: string;
   sourceLang?: string;
   sourceText?: string;
+  headline?: string;
+  urgentEnabled?: boolean;
+  selectedFormats?: FormatKey[];
+  formats?: Partial<StoryFormats>;
+  facts?: StoryFact[];
+  hasBlocker?: boolean;
+  blockerReason?: string;
+}
+
+export interface SettingsDto {
+  stationName: string;
+  editorialStyle: string;
+  radioLength: string;
+  modelProvider: string;
+  modelName: string;
+  aiConfigured: boolean;
+  updatedAt: string;
+}
+
+export interface SettingsPutBody {
+  stationName?: string;
+  editorialStyle?: string;
+  radioLength?: string;
+  modelProvider?: string;
+  modelName?: string;
 }

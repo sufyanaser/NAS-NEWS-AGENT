@@ -298,8 +298,8 @@ test.describe('layout', () => {
     await expectNoHorizontalOverflow(page);
     await expectControlsInsideViewport(page);
     const labels = await page.locator('button:visible').allTextContents();
-    // Only real, working actions exist in this slice.
-    expect(labels.map((l) => l.trim()).sort()).toEqual(['تسجيل الخروج', 'حفظ المسودة', 'قراءة الرابط'].sort());
+    // Only real, working actions exist on the New Story screen.
+    expect(labels.map((l) => l.trim()).sort()).toEqual(['+ خبر جديد', 'تسجيل الخروج', 'حفظ المسودة', 'قراءة الرابط'].sort());
     // Short fields must not stretch across the whole page on large screens.
     const w = await page.locator('#f-publish-date').evaluate((e) => e.getBoundingClientRect().width);
     expect(w).toBeLessThanOrEqual(300);
@@ -318,3 +318,101 @@ test.describe('layout', () => {
     expect(h['strict-transport-security']).not.toContain('includeSubDomains');
   });
 });
+
+test.describe('full 5-screen editorial workflow, archive classification, and settings', () => {
+  test('completes full journey: New Story -> Review & Edit (facts, 4 formats, blocker, approval, publish) -> Archive filters -> Settings', async ({ page }) => {
+    const errors = collectErrors(page);
+    await login(page);
+
+    const uniqueTag = `NAS-FULL-${Date.now()}`;
+    const sourceBody = `أعلنت وزارة الموارد المائية العراقية اليوم في بيان رسمي عن إطلاق خطة طوارئ شاملة لمعالجة شح المياه في محافظات الجنوب (${uniqueTag}) بتكلفة أولية قدرها 50 مليار دينار عراقي.`;
+
+    // 1. New Story screen: fill source + select formats (radio, web, urgent; uncheck facebook)
+    await page.locator('#f-source-name').fill('وزارة الموارد المائية');
+    await page.locator('#f-category').selectOption('محلي');
+    await page.locator('#f-source-lang').selectOption('العربية');
+    await page.locator('#chk-fmt-facebook').uncheck();
+    await page.locator('#chk-fmt-urgent').check();
+    await page.locator('#f-source-text').fill(sourceBody);
+
+    await expect(page.locator('#sufficiency-badge')).toContainText('مادة كافية');
+    await expect(page.locator('#btn-proceed-review')).toBeVisible();
+
+    // Proceed to Review & Edit
+    await page.locator('#btn-proceed-review').click();
+    await expect(page).toHaveURL(new RegExp(`/stories/${UUID}/review$`));
+
+    // Verify split workspace loaded source and transitioned to قيد المراجعة
+    await expect(page.locator('#review-source-name')).toContainText('وزارة الموارد المائية');
+    await expect(page.locator('#review-source-body')).toContainText(uniqueTag);
+    await expect(page.locator('#top-story-status')).toContainText('قيد المراجعة');
+
+    // 2. Add manual facts
+    await page.locator('#input-fact-label').fill('التكلفة الأولية');
+    await page.locator('#input-fact-value').fill('50 مليار دينار عراقي');
+    await page.locator('#select-fact-type').selectOption('sourced');
+    await page.locator('#btn-add-fact').click();
+    await expect(page.locator('#facts-list-container')).toContainText('50 مليار دينار عراقي');
+
+    // 3. Edit headline and formats (Radio, Web, Urgent)
+    await page.locator('#editor-headline-input').fill(`خطة طوارئ مائية للجنوب ${uniqueTag}`);
+    await page.locator('#editor-format-textarea').fill('أعلنت وزارة الموارد المائية إطلاق خطة طوارئ شاملة لمعالجة شح المياه في الجنوب بتكلفة خمسين مليار دينار.');
+    await expect(page.locator('#radio-duration-meter')).toContainText('ثانية');
+
+    await page.locator('#tab-fmt-web').click();
+    await page.locator('#editor-format-textarea').fill('تفاصيل بيان وزارة الموارد المائية حول خطة الطوارئ المائية في الجنوب.');
+
+    await page.locator('#tab-fmt-urgent').click();
+    await page.locator('#editor-format-textarea').fill('عاجل | الموارد المائية تطلق خطة طوارئ لمعالجة شح المياه في الجنوب');
+
+    await page.locator('#btn-review-save').click();
+    await expect(page.locator('#review-save-state')).toHaveAttribute('data-state', 'saved');
+
+    // 4. Approval gates: approve button disabled before checks
+    await expect(page.locator('#btn-approve-story')).toBeDisabled();
+    await page.locator('#chk-verify-facts').check();
+    await page.locator('#chk-verify-attribution').check();
+    await expect(page.locator('#btn-approve-story')).toBeEnabled();
+
+    // Approve story -> معتمد
+    await page.locator('#btn-approve-story').click();
+    await expect(page.locator('#top-story-status')).toContainText('معتمد');
+    await expect(page.locator('#post-approval-publish-box')).toBeVisible();
+
+    // Mark published -> منشور
+    await page.locator('#btn-mark-published').click();
+    await expect(page.locator('#top-story-status')).toContainText('منشور');
+
+    // 5. Navigate to Archive and verify automatic multi-format classification without duplicate rows
+    await page.locator('#nav-archive').click();
+    await expect(page).toHaveURL(/\/archive$/);
+    await expect(page.locator('#archive-list')).toContainText(uniqueTag);
+
+    // Filter by Radio -> story appears
+    await page.locator('#archive-fmt-radio').click();
+    await expect(page.locator('#archive-list')).toContainText(uniqueTag);
+
+    // Filter by Urgent -> story appears
+    await page.locator('#archive-fmt-urgent').click();
+    await expect(page.locator('#archive-list')).toContainText(uniqueTag);
+
+    // Filter by Facebook (unchecked) -> story does not appear
+    await page.locator('#archive-fmt-facebook').click();
+    await expect(page.locator('#archive-list-host')).not.toContainText(uniqueTag);
+
+    // 6. Navigate to Settings and verify D1 persistence + AI status
+    await page.locator('#nav-settings').click();
+    await expect(page).toHaveURL(/\/settings$/);
+    await expect(page.locator('#setting-ai-status')).toContainText('Not Configured');
+    await expect(page.locator('input[type="password"]')).toHaveCount(0);
+
+    await page.locator('#setting-station-name').fill('إذاعة ناس 98.7 FM');
+    await page.locator('#btn-save-settings').click();
+    await expect(page.locator('#settings-feedback')).toContainText('تم حفظ إعدادات غرفة الأخبار');
+    await expect(page.locator('#sidebar-station-name')).toContainText('إذاعة ناس 98.7 FM');
+
+    await expectNoHorizontalOverflow(page);
+    expect(errors.filter((e) => !e.includes('401'))).toEqual([]);
+  });
+});
+

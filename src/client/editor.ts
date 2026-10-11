@@ -1,6 +1,6 @@
-/** "خبر جديد" / draft editor with real server-confirmed autosave (Specs §10, Wireframe WF-02). */
-import { CATEGORIES, SOURCE_LANGS } from '../shared/contracts';
-import type { StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
+/** "خبر جديد" / Source Editor with format selection, source sufficiency, and real server-confirmed autosave. */
+import { CATEGORIES, FORMAT_KEYS, LIMITS, SOURCE_LANGS } from '../shared/contracts';
+import type { FormatKey, StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
 import { ApiError, api } from './api';
 import { clear, h } from './dom';
 
@@ -41,6 +41,8 @@ export interface EditorOptions {
   storyId: string | null;
   navigate: (path: string) => void;
   onSessionLost: () => void;
+  onStoryUpdated?: (story: { id: string; headline: string; status: string }) => void;
+  onSaveStateChange?: (state: SaveState, label: string) => void;
 }
 
 function formatWhen(iso: string): string {
@@ -49,11 +51,20 @@ function formatWhen(iso: string): string {
   return d.toLocaleString('ar-IQ', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
+const FORMAT_META: Record<FormatKey, { title: string; sub: string; icon: string }> = {
+  radio: { title: 'موجز إذاعي', sub: 'لقراءة المذيع على الهواء', icon: '/assets/icons/format-radio.png' },
+  web: { title: 'خبر موقع', sub: 'للنشر على الموقع الرقمي', icon: '/assets/icons/format-web.png' },
+  facebook: { title: 'منشور تواصل', sub: 'لصفحات التواصل الاجتماعي', icon: '/assets/icons/format-podcast.png' },
+  urgent: { title: 'عاجل (اختياري)', sub: 'للشريط العاجل عند الحاجة فقط', icon: '/assets/icons/format-urgent.png' },
+};
+
 export function mountEditor(container: HTMLElement, opts: EditorOptions): EditorHandle {
   let id = opts.storyId;
   let version = 0;
   let savedVersion = 0;
   let confirmed = emptyFields();
+  let confirmedFormats: FormatKey[] = ['radio', 'web', 'facebook'];
+  let selectedFormats: FormatKey[] = ['radio', 'web', 'facebook'];
   let state: SaveState = 'idle';
   let failureMessage = '';
   let sessionLost = false;
@@ -62,6 +73,8 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   let retryTimer: ReturnType<typeof setTimeout> | undefined;
   let disposed = false;
   let readOnly = false;
+  let currentStatus = 'مسودة';
+  let currentHeadline = '';
 
   // ---- static skeleton -------------------------------------------------------------------------
   const titleText = h('h2', { class: 'card-title' }, 'إدخال مادة خبرية');
@@ -81,9 +94,32 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   const langSelect = h('select', { id: 'f-source-lang', class: 'select' }, h('option', { value: '' }, '— غير محدد —'), ...SOURCE_LANGS.map((l) => h('option', { value: l }, l)));
   const textArea = h('textarea', { id: 'f-source-text', class: 'textarea', placeholder: 'الصق النص الكامل للخبر من المصدر هنا…' });
   const counter = h('span', { class: 'note', id: 'char-counter' }, '0 حرف');
+  const sufficiencyBadge = h('span', { class: 'sufficiency-badge short', id: 'sufficiency-badge' }, 'مادة غير كافية (يتطلب اسم المصدر + 50 حرفاً)');
 
   const importButton = h('button', { type: 'button', id: 'btn-import', class: 'btn btn-sm' }, 'قراءة الرابط');
   const importBox = h('div', { id: 'import-status', class: 'alert', role: 'alert', hidden: true });
+
+  // Format selection checkboxes
+  const formatCheckboxes: Record<FormatKey, HTMLInputElement> = {
+    radio: h('input', { type: 'checkbox', id: 'chk-fmt-radio', checked: true }),
+    web: h('input', { type: 'checkbox', id: 'chk-fmt-web', checked: true }),
+    facebook: h('input', { type: 'checkbox', id: 'chk-fmt-facebook', checked: true }),
+    urgent: h('input', { type: 'checkbox', id: 'chk-fmt-urgent' }), // Urgent is optional, never checked by default
+  };
+
+  const formatsGrid = h(
+    'div',
+    { class: 'formats-select-grid', role: 'group', 'aria-label': 'الصيغ المطلوبة للخبر' },
+    ...FORMAT_KEYS.map((fmt) =>
+      h(
+        'label',
+        { class: 'format-check-card', 'data-fmt': fmt },
+        formatCheckboxes[fmt],
+        h('img', { src: FORMAT_META[fmt].icon, alt: '', width: '22', height: '22' }),
+        h('div', { class: 'format-check-info' }, h('strong', {}, FORMAT_META[fmt].title), h('small', {}, FORMAT_META[fmt].sub)),
+      ),
+    ),
+  );
 
   const inputs: Record<FieldKey, HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement> = {
     sourceName: nameInput,
@@ -96,6 +132,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
 
   const stateLabel = h('span', { id: 'save-state', class: 'save-state', role: 'status', 'aria-live': 'polite' });
   const saveButton = h('button', { type: 'button', id: 'btn-save', class: 'btn btn-primary' }, 'حفظ المسودة');
+  const proceedReviewBtn = h('button', { type: 'button', id: 'btn-proceed-review', class: 'btn', hidden: true }, 'الانتقال إلى المراجعة والتحرير ←');
   const retryButton = h('button', { type: 'button', id: 'btn-retry', class: 'btn', hidden: true }, 'إعادة المحاولة');
   const errorBox = h('div', { id: 'save-error', class: 'alert alert-danger', role: 'alert', hidden: true });
   const lockedNote = h('div', { class: 'alert alert-warn', hidden: true }, 'هذا الخبر خرج من مرحلة المسودة، فالحقول للقراءة فقط في هذه النسخة.');
@@ -112,6 +149,18 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     h('div', { class: 'input-with-button' }, urlInput, importButton),
   );
 
+  const formatsFieldContainer = h(
+    'div',
+    { class: 'field' },
+    h(
+      'div',
+      { class: 'label' },
+      h('span', {}, 'الصيغ المطلوبة للخبر (تصنيف الأرشيف التلقائي)'),
+      h('span', { class: 'hint' }, 'يمكن اختيار أكثر من صيغة؛ يظهر الخبر تلقائياً في أقسام الأرشيف المختارة دون تكرار السجل'),
+    ),
+    formatsGrid,
+  );
+
   const card = h(
     'article',
     { class: 'card' },
@@ -120,10 +169,17 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     urlFieldContainer,
     importBox,
     h('div', { class: 'grid-meta' }, field('اسم المصدر / الجهة', nameInput), field('تاريخ النشر', dateInput), field('تصنيف الخبر', categorySelect), field('لغة المادة الأصلية', langSelect)),
-    h('div', { class: 'field' }, h('label', { class: 'label', for: 'f-source-text' }, h('span', {}, 'النص الأصلي للمادة الخبرية'), h('span', { class: 'hint' }, 'المرجع الوحيد لاستخراج الحقائق لاحقاً')), textArea, counter),
+    formatsFieldContainer,
+    h(
+      'div',
+      { class: 'field' },
+      h('label', { class: 'label', for: 'f-source-text' }, h('span', {}, 'النص الأصلي للمادة الخبرية'), h('span', { class: 'hint' }, 'المرجع الوحيد لاستخراج الحقائق ومطابقة الصياغة')),
+      textArea,
+      h('div', { class: 'sufficiency-bar' }, counter, sufficiencyBadge),
+    ),
     errorBox,
-    h('div', { class: 'save-bar' }, stateLabel, h('div', { class: 'stack-row' }, retryButton, saveButton)),
-    h('p', { class: 'note' }, 'استخراج الحقائق والصياغة والاعتماد تُضاف في مراحل لاحقة؛ هذه الشاشة تحفظ المسودة وتستورد النص بأمان.'),
+    h('div', { class: 'save-bar' }, stateLabel, h('div', { class: 'stack-row' }, retryButton, proceedReviewBtn, saveButton)),
+    h('p', { class: 'note' }, 'الاستخراج الآلي بالذكاء الاصطناعي غير متصل في هذه المرحلة؛ يمكنك حفظ المسودة والمتابعة لإدخال الحقائق والصياغات يدوياً.'),
   );
   container.append(card, draftsHost);
 
@@ -134,10 +190,39 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     return f;
   }
 
-  function diff(a: Fields, b: Fields): StoryPatchBody {
+  function currentSelectedFormats(): FormatKey[] {
+    return FORMAT_KEYS.filter((fmt) => formatCheckboxes[fmt].checked);
+  }
+
+  function formatsEqual(a: FormatKey[], b: FormatKey[]): boolean {
+    if (a.length !== b.length) return false;
+    const sa = [...a].sort();
+    const sb = [...b].sort();
+    return sa.every((v, idx) => v === sb[idx]);
+  }
+
+  function diff(a: Fields, b: Fields, fmtA: FormatKey[], fmtB: FormatKey[]): StoryPatchBody {
     const out: StoryPatchBody = {};
     for (const k of FIELD_KEYS) if (a[k] !== b[k]) out[k] = a[k];
+    if (!formatsEqual(fmtA, fmtB)) {
+      out.selectedFormats = fmtA;
+      out.urgentEnabled = fmtA.includes('urgent');
+    }
     return out;
+  }
+
+  function isSufficient(): boolean {
+    return textArea.value.trim().length >= LIMITS.minExtractedChars && nameInput.value.trim().length > 0;
+  }
+
+  function updateCounter(): void {
+    counter.textContent = `${textArea.value.length.toLocaleString('ar-IQ')} حرف`;
+    const ok = isSufficient();
+    sufficiencyBadge.className = `sufficiency-badge ${ok ? 'ready' : 'short'}`;
+    sufficiencyBadge.textContent = ok
+      ? 'مادة كافية للمراجعة والتحرير'
+      : 'مادة غير كافية (يتطلب اسم المصدر + 50 حرفاً على الأقل)';
+    proceedReviewBtn.hidden = !id && !ok;
   }
 
   function setState(next: SaveState, savedAt?: string): void {
@@ -153,10 +238,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       errorBox.textContent = failureMessage;
     }
     saveButton.disabled = readOnly || next === 'saving';
-  }
-
-  function updateCounter(): void {
-    counter.textContent = `${textArea.value.length.toLocaleString('ar-IQ')} حرف`;
+    opts.onSaveStateChange?.(next, stateLabel.textContent ?? '');
   }
 
   function describeFailure(err: unknown): string {
@@ -176,8 +258,9 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
 
   async function runSave(): Promise<void> {
     const snapshot = current();
+    const fmtSnapshot = currentSelectedFormats();
     const startVersion = version;
-    const changes = diff(snapshot, confirmed);
+    const changes = diff(snapshot, confirmed, fmtSnapshot, confirmedFormats);
     if (Object.keys(changes).length === 0) {
       savedVersion = startVersion;
       setState(id ? 'saved' : 'idle');
@@ -186,21 +269,27 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     setState('saving');
     try {
       let savedAt: string;
+      let updatedStory: StoryDto;
       if (id === null) {
         const { story } = await api.createStory(changes);
         id = story.id;
         savedAt = story.updatedAt;
-        // The URL now names the persisted draft, so reload/bookmark restores it.
+        updatedStory = story;
         history.replaceState(null, '', `/stories/${story.id}`);
         void loadDrafts();
       } else {
         const { story } = await api.patchStory(id, changes);
         savedAt = story.updatedAt;
+        updatedStory = story;
       }
-      // Success is claimed only here, after the server responded 2xx.
       confirmed = snapshot;
+      confirmedFormats = fmtSnapshot;
       savedVersion = startVersion;
       failureMessage = '';
+      currentStatus = updatedStory.status;
+      currentHeadline = updatedStory.headline || updatedStory.sourceName || 'مسودة خبر';
+      opts.onStoryUpdated?.({ id: updatedStory.id, headline: currentHeadline, status: currentStatus });
+      updateCounter();
       if (version === startVersion) setState('saved', savedAt);
     } catch (err) {
       failureMessage = describeFailure(err);
@@ -226,13 +315,13 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       } finally {
         currentSave = null;
       }
-      // Edits made while the request was in flight get their own save, unless the last attempt failed.
       if (!disposed && state !== 'failed' && version > savedVersion) await save();
     })();
     return currentSave;
   }
 
   function onInput(): void {
+    selectedFormats = currentSelectedFormats();
     version++;
     updateCounter();
     setState('saving');
@@ -254,7 +343,6 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       return;
     }
 
-    // Flush any pending draft save so story has an ID before calling /import
     if (id === null) {
       await save();
     }
@@ -280,9 +368,8 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         textArea.value = res.sourceText;
         updateCounter();
         version++;
-        schedule(500); // trigger quick autosave of the imported text
+        schedule(500);
       } else {
-        // Failure: alert editor with friendly Arabic message, NEVER touch existing textArea content
         importBox.className = 'alert alert-warn';
         importBox.textContent = res.importMessage || 'تعذّرت قراءة الرابط. يرجى لصق نص الخبر يدوياً في الخانة أدناه.';
       }
@@ -295,13 +382,30 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     }
   }
 
+  async function handleProceedToReview(): Promise<void> {
+    await save();
+    if (!id) return;
+    if (isSufficient() && currentStatus === 'مسودة') {
+      try {
+        await api.startReview(id);
+      } catch {
+        //Even if startReview fails, navigate to workspace where user can review
+      }
+    }
+    opts.navigate(`/stories/${id}/review`);
+  }
+
   for (const k of FIELD_KEYS) {
     inputs[k].addEventListener('input', onInput);
     inputs[k].addEventListener('change', onInput);
   }
+  for (const fmt of FORMAT_KEYS) {
+    formatCheckboxes[fmt].addEventListener('change', onInput);
+  }
   importButton.addEventListener('click', () => void handleImport());
   saveButton.addEventListener('click', () => void save());
   retryButton.addEventListener('click', () => void save());
+  proceedReviewBtn.addEventListener('click', () => void handleProceedToReview());
 
   const beforeUnload = (e: BeforeUnloadEvent): void => {
     if (version > savedVersion || state === 'failed') {
@@ -364,9 +468,14 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
                     opts.navigate(`/stories/${s.id}`);
                   },
                 },
-                h('div', { class: 'draft-title' }, s.sourceName || 'بدون اسم مصدر'),
+                h('div', { class: 'draft-title' }, s.headline || s.sourceName || 'بدون اسم مصدر'),
                 h('div', { class: 'draft-preview' }, s.textPreview || '(لا يوجد نص بعد)'),
-                h('div', { class: 'draft-meta' }, h('span', { class: 'badge' }, s.status), h('span', {}, formatWhen(s.updatedAt))),
+                h(
+                  'div',
+                  { class: 'draft-meta' },
+                  h('span', { class: 'badge', 'data-status': s.status }, s.status),
+                  h('span', {}, formatWhen(s.updatedAt)),
+                ),
               ),
             ),
           ),
@@ -380,14 +489,27 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     const f = fieldsOf(s);
     for (const k of FIELD_KEYS) inputs[k].value = f[k];
     confirmed = f;
+    selectedFormats = s.selectedFormats.length > 0 ? [...s.selectedFormats] : ['radio', 'web', 'facebook'];
+    confirmedFormats = [...selectedFormats];
+    for (const fmt of FORMAT_KEYS) {
+      formatCheckboxes[fmt].checked = selectedFormats.includes(fmt);
+    }
+    currentStatus = s.status;
+    currentHeadline = s.headline || s.sourceName || 'مسودة خبر';
+    opts.onStoryUpdated?.({ id: s.id, headline: currentHeadline, status: currentStatus });
+
     updateCounter();
     statusBadge.textContent = s.status;
+    statusBadge.dataset.status = s.status;
     statusBadge.hidden = false;
     titleText.textContent = 'متابعة المسودة';
+    proceedReviewBtn.hidden = false;
+
     if (!EDITABLE_STATUSES.includes(s.status)) {
       readOnly = true;
       lockedNote.hidden = false;
       for (const k of FIELD_KEYS) inputs[k].disabled = true;
+      for (const fmt of FORMAT_KEYS) formatCheckboxes[fmt].disabled = true;
       importButton.disabled = true;
     }
     setState('saved', s.updatedAt);
@@ -400,6 +522,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   } else {
     const loadingId = id;
     for (const k of FIELD_KEYS) inputs[k].disabled = true;
+    for (const fmt of FORMAT_KEYS) formatCheckboxes[fmt].disabled = true;
     saveButton.disabled = true;
     stateLabel.textContent = 'جارٍ تحميل المسودة…';
     void (async () => {
@@ -407,6 +530,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         const { story } = await api.getStory(loadingId);
         if (disposed) return;
         for (const k of FIELD_KEYS) inputs[k].disabled = false;
+        for (const fmt of FORMAT_KEYS) formatCheckboxes[fmt].disabled = false;
         applyStory(story);
         void loadDrafts();
       } catch (err) {
