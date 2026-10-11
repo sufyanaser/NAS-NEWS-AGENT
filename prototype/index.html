@@ -1,0 +1,3401 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NAS Newsroom — غرفة أخبار إذاعة ناس (نموذج تفاعلي 1.0)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <style>
+    /* ==========================================================================
+       1. DESIGN TOKENS — Premium Editorial Newsroom System (Light Mode)
+       ========================================================================== */
+    :root {
+      --bg-canvas: #F3F5F8;
+      --bg-surface: #FFFFFF;
+      --bg-subtle: #F8FAFC;
+      --bg-muted: #EEF2F6;
+      --bg-sidebar: #0F172A;
+      --bg-sidebar-hover: #1E293B;
+      --bg-sidebar-active: #1D4ED8;
+
+      --text-primary: #0F172A;
+      --text-secondary: #334155;
+      --text-muted: #64748B;
+      --text-on-dark: #F8FAFC;
+      --text-on-dark-muted: #94A3B8;
+
+      --border-subtle: #E2E8F0;
+      --border-strong: #CBD5E1;
+      --border-focus: #2563EB;
+
+      /* Brand & Broadcast Accents (NAS FM) */
+      --brand-primary: #1D4ED8;
+      --brand-primary-hover: #1E40AF;
+      --brand-primary-soft: #EFF6FF;
+      --brand-broadcast: #DC2626;
+
+      /* Editorial Semantic States */
+      --status-draft-bg: #F1F5F9;
+      --status-draft-text: #475569;
+      --status-draft-border: #CBD5E1;
+
+      --status-review-bg: #EFF6FF;
+      --status-review-text: #1D4ED8;
+      --status-review-border: #BFDBFE;
+
+      --status-approved-bg: #ECFDF5;
+      --status-approved-text: #047857;
+      --status-approved-border: #A7F3D0;
+
+      --status-published-bg: #F0F9FF;
+      --status-published-text: #0369A1;
+      --status-published-border: #BAE6FD;
+
+      --status-excluded-bg: #FFF1F2;
+      --status-excluded-text: #BE123C;
+      --status-excluded-border: #FECDD3;
+
+      /* Alerts & Verification Badges */
+      --warn-bg: #FFFBEB;
+      --warn-text: #B45309;
+      --warn-border: #FDE68A;
+
+      --danger-bg: #FEF2F2;
+      --danger-text: #B91C1C;
+      --danger-border: #FECACA;
+
+      --success-bg: #ECFDF5;
+      --success-text: #047857;
+      --success-border: #A7F3D0;
+
+      /* Typography & Geometry */
+      --font-editorial: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+      --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+
+      --radius-sm: 6px;
+      --radius-md: 8px;
+      --radius-lg: 12px;
+      --shadow-card: 0 1px 3px rgba(15, 23, 42, 0.05), 0 1px 2px rgba(15, 23, 42, 0.03);
+      --shadow-elevated: 0 10px 25px -5px rgba(15, 23, 42, 0.08);
+    }
+
+    /* ==========================================================================
+       2. RESET & BASE RULES
+       ========================================================================== */
+    *, *::before, *::after {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      min-height: 100vh;
+      background-color: var(--bg-canvas);
+      color: var(--text-primary);
+      font-family: var(--font-editorial);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      overflow-x: hidden;
+    }
+
+    button, input, select, textarea {
+      font-family: inherit;
+      font-size: inherit;
+      color: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    button:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    h1, h2, h3, h4, p {
+      margin: 0;
+    }
+
+    [hidden] {
+      display: none !important;
+    }
+
+    .ltr-inline {
+      direction: ltr;
+      unicode-bidi: isolate;
+      display: inline-block;
+    }
+
+    /* ==========================================================================
+       3. APP SHELL & NAVIGATION
+       ========================================================================== */
+    .app-shell {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      min-height: 100vh;
+      width: 100%;
+    }
+
+    /* Sidebar */
+    .app-sidebar {
+      background: var(--bg-sidebar);
+      color: var(--text-on-dark);
+      display: flex;
+      flex-direction: column;
+      padding: 18px 14px;
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      border-left: 1px solid rgba(255, 255, 255, 0.08);
+      z-index: 40;
+    }
+
+    .brand-box {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 8px 16px;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+      margin-bottom: 16px;
+    }
+
+    .brand-mark {
+      width: 36px;
+      height: 36px;
+      border-radius: 8px;
+      background: linear-gradient(135deg, #2563EB, #1D4ED8);
+      display: grid;
+      place-items: center;
+      font-weight: 700;
+      font-size: 14px;
+      color: #fff;
+      flex-shrink: 0;
+      position: relative;
+    }
+
+    .brand-mark::after {
+      content: "";
+      position: absolute;
+      top: -3px;
+      left: -3px;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #EF4444;
+      border: 2px solid var(--bg-sidebar);
+    }
+
+    .brand-text strong {
+      display: block;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: -0.2px;
+      color: #fff;
+    }
+
+    .brand-text span {
+      display: block;
+      font-size: 12px;
+      color: var(--text-on-dark-muted);
+    }
+
+    .nav-section-label {
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-on-dark-muted);
+      padding: 0 10px;
+      margin-bottom: 6px;
+      letter-spacing: 0.3px;
+    }
+
+    .sidebar-nav {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .nav-btn {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      width: 100%;
+      padding: 10px 12px;
+      border: 0;
+      border-radius: var(--radius-md);
+      background: transparent;
+      color: #CBD5E1;
+      font-size: 14px;
+      font-weight: 500;
+      text-align: right;
+      transition: background 0.15s ease, color 0.15s ease;
+    }
+
+    .nav-btn svg {
+      width: 18px;
+      height: 18px;
+      flex-shrink: 0;
+      opacity: 0.85;
+    }
+
+    .nav-btn:hover {
+      background: var(--bg-sidebar-hover);
+      color: #fff;
+    }
+
+    .nav-btn.active {
+      background: var(--bg-sidebar-active);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .nav-badge {
+      margin-right: auto;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.14);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    .sidebar-footer {
+      margin-top: auto;
+      padding-top: 14px;
+      border-top: 1px solid rgba(255, 255, 255, 0.1);
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .proto-pill {
+      background: rgba(245, 158, 11, 0.14);
+      border: 1px solid rgba(245, 158, 11, 0.35);
+      color: #FCD34D;
+      border-radius: var(--radius-sm);
+      padding: 8px 10px;
+      font-size: 11.5px;
+      line-height: 1.45;
+    }
+
+    /* Main Content Area */
+    .app-main {
+      min-width: 0;
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+    }
+
+    /* Top Workspace Bar */
+    .top-bar {
+      position: sticky;
+      top: 0;
+      z-index: 30;
+      background: rgba(255, 255, 255, 0.96);
+      backdrop-filter: blur(8px);
+      border-bottom: 1px solid var(--border-subtle);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .top-bar-right {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      min-width: 0;
+      flex: 1 1 auto;
+    }
+
+    .page-heading {
+      font-size: 16.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+      white-space: nowrap;
+    }
+
+    .active-story-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 3px 10px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 12.5px;
+      color: var(--text-secondary);
+      min-width: 0;
+      max-width: min(420px, 100%);
+    }
+
+    .active-story-indicator span {
+      white-space: nowrap;
+      flex-shrink: 0;
+    }
+
+    .active-story-indicator strong {
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+      min-width: 0;
+    }
+
+    .top-bar-left {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .status-group {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-muted);
+      background: var(--bg-subtle);
+      padding: 3px 8px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+    }
+
+    .story-status-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 700;
+      border: 1px solid transparent;
+    }
+
+    .story-status-badge[data-status="مسودة"] {
+      background: var(--status-draft-bg);
+      color: var(--status-draft-text);
+      border-color: var(--status-draft-border);
+    }
+
+    .story-status-badge[data-status="قيد المراجعة"] {
+      background: var(--status-review-bg);
+      color: var(--status-review-text);
+      border-color: var(--status-review-border);
+    }
+
+    .story-status-badge[data-status="معتمد"] {
+      background: var(--status-approved-bg);
+      color: var(--status-approved-text);
+      border-color: var(--status-approved-border);
+    }
+
+    .story-status-badge[data-status="منشور"] {
+      background: var(--status-published-bg);
+      color: var(--status-published-text);
+      border-color: var(--status-published-border);
+    }
+
+    .story-status-badge[data-status="مستبعد"] {
+      background: var(--status-excluded-bg);
+      color: var(--status-excluded-text);
+      border-color: var(--status-excluded-border);
+    }
+
+    .save-indicator {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--text-secondary);
+      padding: 3px 9px;
+      border-radius: var(--radius-sm);
+      background: #F8FAFC;
+      border: 1px solid var(--border-subtle);
+    }
+
+    .save-dot {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #10B981;
+      flex-shrink: 0;
+    }
+
+    .save-indicator[data-saving="error"] .save-dot {
+      background: #EF4444;
+    }
+
+    /* Demo Scenario Switcher Strip */
+    .demo-strip {
+      background: #EEF2FF;
+      border-bottom: 1px solid #C7D2FE;
+      padding: 5px 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      flex-wrap: wrap;
+      font-size: 12px;
+    }
+
+    .demo-strip-title {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      color: #1E3A8A;
+      font-weight: 600;
+    }
+
+    .demo-strip-tag {
+      background: #1D4ED8;
+      color: #fff;
+      font-size: 10.5px;
+      font-weight: 700;
+      padding: 1px 6px;
+      border-radius: 4px;
+    }
+
+    .scenario-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .scenario-btn {
+      padding: 3px 10px;
+      border-radius: var(--radius-sm);
+      border: 1px solid #93C5FD;
+      background: #FFFFFF;
+      color: #1E3A8A;
+      font-size: 12px;
+      font-weight: 600;
+      transition: all 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .scenario-btn:hover {
+      background: #DBEAFE;
+    }
+
+    .scenario-btn.active {
+      background: #1D4ED8;
+      border-color: #1D4ED8;
+      color: #FFFFFF;
+    }
+
+    /* Views Container */
+    .view-section {
+      display: none;
+      padding: 12px 20px 24px;
+      flex: 1;
+    }
+
+    .view-section.active {
+      display: block;
+    }
+
+    /* ==========================================================================
+       4. SHARED EDITORIAL COMPONENTS (Cards, Buttons, Inputs, Alerts)
+       ========================================================================== */
+    .ed-card {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      padding: 12px 16px;
+    }
+
+    .ed-card-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-bottom: 8px;
+      margin-bottom: 10px;
+      border-bottom: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+
+    .ed-card-title {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      font-size: 14.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .ed-card-subtitle {
+      font-size: 11.5px;
+      color: var(--text-muted);
+      font-weight: 400;
+    }
+
+    /* Buttons */
+    .btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 6px 13px;
+      min-height: 34px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background: var(--bg-surface);
+      color: var(--text-primary);
+      font-size: 13px;
+      font-weight: 600;
+      text-decoration: none;
+      transition: background 0.15s ease, border-color 0.15s ease;
+      white-space: nowrap;
+    }
+
+    .btn svg {
+      width: 15px;
+      height: 15px;
+      flex-shrink: 0;
+    }
+
+    .btn:hover:not(:disabled) {
+      background: var(--bg-subtle);
+      border-color: #94A3B8;
+    }
+
+    .btn-primary {
+      background: var(--brand-primary);
+      border-color: var(--brand-primary);
+      color: #FFFFFF;
+    }
+
+    .btn-primary:hover:not(:disabled) {
+      background: var(--brand-primary-hover);
+      border-color: var(--brand-primary-hover);
+    }
+
+    .btn-success {
+      background: #059669;
+      border-color: #059669;
+      color: #FFFFFF;
+    }
+
+    .btn-success:hover:not(:disabled) {
+      background: #047857;
+      border-color: #047857;
+    }
+
+    .btn-danger-outline {
+      color: #B91C1C;
+      border-color: #FCA5A5;
+      background: #FFF;
+    }
+
+    .btn-danger-outline:hover:not(:disabled) {
+      background: #FEF2F2;
+      border-color: #EF4444;
+    }
+
+    .btn-sm {
+      min-height: 29px;
+      padding: 4px 10px;
+      font-size: 12px;
+    }
+
+    /* Form Controls */
+    .field-group {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--text-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+    }
+
+    .field-hint {
+      font-size: 11px;
+      font-weight: 400;
+      color: var(--text-muted);
+    }
+
+    .field-input,
+    .field-select,
+    .field-textarea {
+      width: 100%;
+      padding: 7px 11px;
+      min-height: 36px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background: #FFFFFF;
+      color: var(--text-primary);
+      font-size: 13.5px;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+
+    .field-input:focus,
+    .field-select:focus,
+    .field-textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    .field-textarea {
+      min-height: 150px;
+      line-height: 1.8;
+      resize: vertical;
+    }
+
+    /* Alerts */
+    .alert-box {
+      padding: 9px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      font-size: 12.5px;
+      line-height: 1.5;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+    }
+
+    .alert-info {
+      background: #F0F9FF;
+      border-color: #BAE6FD;
+      color: #0C4A6E;
+    }
+
+    .alert-warn {
+      background: var(--warn-bg);
+      border-color: var(--warn-border);
+      color: var(--warn-text);
+    }
+
+    .alert-danger {
+      background: var(--danger-bg);
+      border-color: var(--danger-border);
+      color: var(--danger-text);
+    }
+
+    .alert-success {
+      background: var(--success-bg);
+      border-color: var(--success-border);
+      color: var(--success-text);
+    }
+
+    /* ==========================================================================
+       5. SCREEN 1: NEW STORY (شاشة خبر جديد)
+       ========================================================================== */
+    .new-story-container {
+      max-width: 960px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .url-fetch-row {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 10px;
+      align-items: end;
+    }
+
+    .meta-inputs-grid {
+      display: grid;
+      grid-template-columns: minmax(200px, 1.3fr) minmax(150px, 0.9fr) minmax(150px, 0.9fr) minmax(140px, 0.8fr);
+      gap: 12px;
+      margin-top: 10px;
+    }
+
+    .sufficiency-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding: 6px 12px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-sm);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .sufficiency-badge {
+      font-weight: 700;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 11.5px;
+    }
+
+    .sufficiency-badge.ready {
+      background: var(--success-bg);
+      color: var(--success-text);
+    }
+
+    .sufficiency-badge.short {
+      background: var(--warn-bg);
+      color: var(--warn-text);
+    }
+
+    .new-story-actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      padding-top: 12px;
+      margin-top: 12px;
+      border-top: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+
+    /* ==========================================================================
+       6. SCREEN 2: REVIEW & EDIT WORKSPACE (شاشة المراجعة والتحرير — القلب)
+       ========================================================================== */
+    /* Editorial Workflow Step Bar (Separated from Story Status) */
+    .workflow-bar {
+      background: var(--bg-surface);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 7px 14px;
+      margin-bottom: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      box-shadow: var(--shadow-card);
+      flex-wrap: wrap;
+    }
+
+    .workflow-bar-label {
+      display: flex;
+      align-items: baseline;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .workflow-bar-label strong {
+      font-size: 12.5px;
+      color: var(--text-primary);
+    }
+
+    .workflow-bar-label span {
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .workflow-steps {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(110px, 1fr));
+      gap: 6px;
+      flex: 1;
+      max-width: 640px;
+    }
+
+    .step-pill {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-subtle);
+      background: var(--bg-subtle);
+      color: var(--text-secondary);
+      font-size: 12px;
+      font-weight: 600;
+      text-align: right;
+      transition: all 0.15s ease;
+    }
+
+    .step-pill:hover {
+      border-color: #94A3B8;
+      background: #F1F5F9;
+    }
+
+    .step-num {
+      width: 19px;
+      height: 19px;
+      border-radius: 50%;
+      background: #E2E8F0;
+      color: var(--text-secondary);
+      display: grid;
+      place-items: center;
+      font-size: 11px;
+      font-weight: 700;
+      flex-shrink: 0;
+    }
+
+    .step-pill.done {
+      border-color: #BFDBFE;
+      background: #F8FAFC;
+      color: var(--text-primary);
+    }
+
+    .step-pill.done .step-num {
+      background: #DBEAFE;
+      color: #1D4ED8;
+    }
+
+    .step-pill.active {
+      border-color: var(--brand-primary);
+      background: var(--brand-primary-soft);
+      color: var(--brand-primary);
+      box-shadow: 0 0 0 1px var(--brand-primary);
+    }
+
+    .step-pill.active .step-num {
+      background: var(--brand-primary);
+      color: #FFFFFF;
+    }
+
+    /* Mobile Quick Switcher (Hidden on Desktop) */
+    .mobile-workspace-switcher {
+      display: none;
+      margin-bottom: 10px;
+      background: var(--bg-surface);
+      border: 1px solid var(--border-strong);
+      border-radius: var(--radius-md);
+      padding: 3px;
+      grid-template-columns: 1fr 1fr;
+      gap: 4px;
+      position: sticky;
+      top: 52px;
+      z-index: 25;
+      box-shadow: var(--shadow-card);
+    }
+
+    .mobile-switch-btn {
+      padding: 7px 10px;
+      border: 0;
+      border-radius: var(--radius-sm);
+      background: transparent;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-secondary);
+    }
+
+    .mobile-switch-btn.active {
+      background: var(--brand-primary);
+      color: #FFFFFF;
+    }
+
+    /* Split Workspace Grid */
+    .review-split-grid {
+      display: grid;
+      grid-template-columns: minmax(320px, 0.82fr) minmax(480px, 1.18fr);
+      gap: 14px;
+      align-items: start;
+    }
+
+    /* Column 1: Source Card (Sticky & Independently Scrollable on Desktop) */
+    .source-card {
+      position: sticky;
+      top: 58px;
+      max-height: calc(100vh - 72px);
+      display: flex;
+      flex-direction: column;
+      background: #FFFFFF;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-card);
+      padding: 12px 16px;
+    }
+
+    .source-meta-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 10px;
+      padding: 8px 10px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 10px;
+      font-size: 12px;
+    }
+
+    .source-meta-item {
+      display: flex;
+      flex-direction: column;
+      gap: 1px;
+      min-width: 0;
+    }
+
+    .source-meta-item.full {
+      grid-column: 1 / -1;
+      padding-top: 4px;
+      border-top: 1px dashed var(--border-subtle);
+    }
+
+    .source-meta-label {
+      font-size: 10.5px;
+      color: var(--text-muted);
+      font-weight: 600;
+    }
+
+    .source-meta-val {
+      font-weight: 600;
+      color: var(--text-primary);
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .source-reading-box {
+      flex: 1;
+      min-height: 260px;
+      overflow-y: auto;
+      padding: 12px 14px;
+      background: #FCFDFE;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      font-size: 15px;
+      line-height: 1.85;
+      color: #1E293B;
+    }
+
+    .source-reading-box p {
+      margin-bottom: 12px;
+    }
+
+    .source-reading-box p:last-child {
+      margin-bottom: 0;
+    }
+
+    .source-reading-box[dir="ltr"] {
+      text-align: left;
+      font-size: 14px;
+      line-height: 1.75;
+    }
+
+    /* Column 2: Editorial Work Stack */
+    .editorial-work-stack {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .card-focused {
+      border-color: var(--brand-primary);
+      box-shadow: 0 0 0 2px rgba(29, 78, 216, 0.15);
+    }
+
+    /* Card A: Extracted Facts & Missing Info (Compact 2-Column Editorial Grid on Desktop) */
+    .facts-table {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      overflow: hidden;
+      background: var(--border-subtle);
+      gap: 1px;
+    }
+
+    .fact-row {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      gap: 4px;
+      padding: 7px 11px;
+      background: #FFFFFF;
+      font-size: 12.5px;
+    }
+
+    .fact-row:last-child:nth-child(odd) {
+      grid-column: 1 / -1;
+    }
+
+    .fact-row-top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 6px;
+    }
+
+    .fact-row.is-missing {
+      background: #FFFBEB;
+      grid-column: 1 / -1;
+      flex-direction: row;
+      align-items: center;
+    }
+
+    .fact-row.is-blocker {
+      background: #FEF2F2;
+      grid-column: 1 / -1;
+    }
+
+    .fact-label {
+      font-weight: 700;
+      color: var(--text-secondary);
+      font-size: 11.5px;
+    }
+
+    .fact-value {
+      color: var(--text-primary);
+      line-height: 1.45;
+      font-weight: 500;
+    }
+
+    .fact-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+      padding: 1px 7px;
+      border-radius: 999px;
+      font-size: 10.5px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .fact-badge.sourced {
+      background: #F0FDF4;
+      color: #15803D;
+      border: 1px solid #BBF7D0;
+    }
+
+    .fact-badge.missing {
+      background: #FEF3C7;
+      color: #B45309;
+      border: 1px dashed #F59E0B;
+    }
+
+    .fact-badge.review-req {
+      background: #FEE2E2;
+      color: #B91C1C;
+      border: 1px solid #FCA5A5;
+    }
+
+    /* Card B: Drafting & Formats */
+    #view-review .ed-card {
+      padding: 9px 14px;
+    }
+
+    #view-review .ed-card-header {
+      padding-bottom: 5px;
+      margin-bottom: 7px;
+      flex-wrap: nowrap;
+    }
+
+    #view-review .ed-card-subtitle {
+      display: none;
+    }
+
+    .format-tabs-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      border-bottom: 1px solid var(--border-subtle);
+      margin-top: 6px;
+      margin-bottom: 6px;
+      flex-wrap: wrap;
+    }
+
+    .format-tabs {
+      display: flex;
+      gap: 4px;
+      overflow-x: auto;
+    }
+
+    .format-tab {
+      padding: 5px 11px;
+      border: 0;
+      border-bottom: 2px solid transparent;
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 12.5px;
+      font-weight: 600;
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+
+    .format-tab:hover {
+      color: var(--text-primary);
+      background: var(--bg-subtle);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .format-tab.active {
+      color: var(--brand-primary);
+      border-bottom-color: var(--brand-primary);
+      background: var(--brand-primary-soft);
+      border-radius: 6px 6px 0 0;
+    }
+
+    .radio-meter {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11.5px;
+      padding: 2px 9px;
+      border-radius: 999px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      color: var(--text-secondary);
+      font-weight: 600;
+    }
+
+    .radio-meter[data-fit="optimal"] {
+      background: #ECFDF5;
+      border-color: #A7F3D0;
+      color: #047857;
+    }
+
+    .radio-meter[data-fit="warn"] {
+      background: #FFFBEB;
+      border-color: #FDE68A;
+      color: #B45309;
+    }
+
+    .editor-textarea {
+      width: 100%;
+      min-height: 122px;
+      padding: 9px 12px;
+      border-radius: var(--radius-md);
+      border: 1px solid var(--border-strong);
+      background: #FFFFFF;
+      color: var(--text-primary);
+      font-size: 15px;
+      line-height: 1.75;
+      resize: vertical;
+    }
+
+    .editor-textarea:focus {
+      outline: none;
+      border-color: var(--border-focus);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.14);
+    }
+
+    .editor-footer-tools {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 5px;
+      flex-wrap: wrap;
+      font-size: 11.5px;
+      color: var(--text-muted);
+    }
+
+    /* Card C: Human Verification & Actions */
+    .verification-checklist {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 12px;
+      padding: 7px 10px;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-md);
+      margin-bottom: 8px;
+    }
+
+    .check-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 8px;
+      font-size: 12px;
+      line-height: 1.4;
+      color: var(--text-primary);
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .check-item input[type="checkbox"] {
+      width: 16px;
+      height: 16px;
+      margin-top: 2px;
+      accent-color: var(--brand-primary);
+      flex-shrink: 0;
+      cursor: pointer;
+    }
+
+    .approval-action-bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      padding-top: 7px;
+      border-top: 1px solid var(--border-subtle);
+      flex-wrap: wrap;
+    }
+
+    .primary-actions-group,
+    .secondary-actions-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ==========================================================================
+       7. SCREEN 3: ARCHIVE (شاشة الأرشيف)
+       ========================================================================== */
+    .archive-container {
+      max-width: 1180px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .archive-controls {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .archive-search-wrap {
+      flex: 1;
+      min-width: 260px;
+      max-width: 460px;
+    }
+
+    .archive-filter-pills {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-wrap: wrap;
+    }
+
+    .filter-pill {
+      padding: 5px 12px;
+      border-radius: 999px;
+      border: 1px solid var(--border-strong);
+      background: #FFFFFF;
+      color: var(--text-secondary);
+      font-size: 12.5px;
+      font-weight: 600;
+    }
+
+    .filter-pill.active {
+      background: var(--text-primary);
+      border-color: var(--text-primary);
+      color: #FFFFFF;
+    }
+
+    .archive-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .archive-card {
+      background: #FFFFFF;
+      border: 1px solid var(--border-subtle);
+      border-radius: var(--radius-lg);
+      padding: 14px 18px;
+      box-shadow: var(--shadow-card);
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) auto;
+      gap: 16px;
+      align-items: center;
+      transition: border-color 0.15s ease;
+    }
+
+    .archive-card:hover {
+      border-color: #94A3B8;
+    }
+
+    .archive-card.is-current {
+      border-right: 4px solid var(--brand-primary);
+    }
+
+    .archive-card-main {
+      display: flex;
+      flex-direction: column;
+      gap: 6px;
+      min-width: 0;
+    }
+
+    .archive-card-top {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .archive-title {
+      font-size: 15.5px;
+      font-weight: 700;
+      color: var(--text-primary);
+    }
+
+    .archive-meta {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      flex-wrap: wrap;
+      font-size: 12.5px;
+      color: var(--text-muted);
+    }
+
+    .archive-actions {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    /* ==========================================================================
+       8. SCREEN 4: SETTINGS (شاشة الإعدادات المختصرة)
+       ========================================================================== */
+    .settings-container {
+      max-width: 760px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 14px;
+    }
+
+    .settings-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 14px;
+    }
+
+    /* ==========================================================================
+       9. SCREEN 5: LOGIN (شاشة تسجيل الدخول)
+       ========================================================================== */
+    .login-wrapper {
+      max-width: 440px;
+      margin: 36px auto;
+    }
+
+    .login-brand-header {
+      text-align: center;
+      margin-bottom: 18px;
+    }
+
+    .login-brand-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 5px 14px;
+      border-radius: 999px;
+      background: #0F172A;
+      color: #FFFFFF;
+      font-size: 12.5px;
+      font-weight: 700;
+      margin-bottom: 8px;
+    }
+
+    /* ==========================================================================
+       10. RESPONSIVE BREAKPOINTS (Tablet 1024x768 & Mobile 390x844)
+       ========================================================================== */
+    @media (max-width: 1180px) {
+      .app-shell {
+        grid-template-columns: 184px minmax(0, 1fr);
+      }
+      .review-split-grid {
+        grid-template-columns: minmax(290px, 0.82fr) minmax(390px, 1.18fr);
+        gap: 12px;
+      }
+      .meta-inputs-grid,
+      .verification-checklist {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    @media (max-width: 960px) {
+      .review-split-grid {
+        grid-template-columns: 1fr;
+      }
+      .source-card {
+        position: static;
+        max-height: none;
+      }
+      .source-reading-box {
+        max-height: 280px;
+      }
+      .workflow-steps {
+        grid-template-columns: repeat(4, 1fr);
+        max-width: none;
+      }
+    }
+
+    @media (max-width: 768px) {
+      .app-shell {
+        grid-template-columns: 1fr;
+      }
+
+      .app-sidebar {
+        position: sticky;
+        top: 0;
+        height: auto;
+        padding: 8px 12px;
+        flex-direction: column;
+        gap: 6px;
+        border-left: 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+      }
+
+      .brand-box {
+        padding: 0 0 6px;
+        margin-bottom: 0;
+        justify-content: space-between;
+      }
+
+      .nav-section-label,
+      .sidebar-footer {
+        display: none;
+      }
+
+      .sidebar-nav {
+        flex-direction: row;
+        overflow-x: auto;
+        gap: 4px;
+        padding-bottom: 2px;
+      }
+
+      .nav-btn {
+        width: auto;
+        padding: 6px 10px;
+        font-size: 12.5px;
+        white-space: nowrap;
+      }
+
+      .top-bar {
+        padding: 8px 12px;
+        position: static;
+        gap: 8px;
+      }
+
+      .active-story-indicator {
+        display: none;
+      }
+
+      .demo-strip {
+        padding: 6px 12px;
+      }
+
+      .demo-strip-title span:not(.demo-strip-tag) {
+        display: none;
+      }
+
+      .scenario-pills {
+        flex-wrap: nowrap;
+        overflow-x: auto;
+        max-width: 100%;
+        padding-bottom: 2px;
+      }
+
+      .view-section {
+        padding: 10px 10px 28px;
+      }
+
+      .url-fetch-row,
+      .meta-inputs-grid,
+      .settings-grid,
+      .source-meta-grid,
+      .facts-table,
+      .verification-checklist {
+        grid-template-columns: 1fr;
+      }
+
+      .workflow-bar {
+        padding: 6px 10px;
+        margin-bottom: 8px;
+      }
+
+      .workflow-bar-label {
+        display: none;
+      }
+
+      .workflow-steps {
+        grid-template-columns: repeat(4, 1fr);
+        width: 100%;
+        gap: 4px;
+      }
+
+      .step-pill {
+        padding: 5px 6px;
+        font-size: 11px;
+        justify-content: center;
+      }
+
+      .step-num {
+        display: none;
+      }
+
+      /* Mobile Toggle between Source & Editor in Review */
+      .mobile-workspace-switcher {
+        display: grid;
+        top: 0;
+      }
+
+      .review-split-grid[data-mobile-pane="editor"] .source-card {
+        display: none;
+      }
+
+      .review-split-grid[data-mobile-pane="source"] .editorial-work-stack {
+        display: none;
+      }
+
+      .fact-row.is-missing {
+        flex-direction: column;
+        align-items: flex-start;
+      }
+
+      .archive-card {
+        grid-template-columns: 1fr;
+      }
+
+      .login-wrapper {
+        margin: 16px auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="app-shell" id="app-shell">
+    <!-- ======================================================================
+         SIDEBAR NAVIGATION
+         ====================================================================== -->
+    <aside class="app-sidebar" aria-label="القائمة الرئيسية">
+      <div class="brand-box">
+        <div style="display:flex;align-items:center;gap:10px;">
+          <div class="brand-mark" aria-hidden="true">NAS</div>
+          <div class="brand-text">
+            <strong id="sidebar-station-name">NAS Newsroom</strong>
+            <span>غرفة الأخبار الإذاعية</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="nav-section-label">مساحة العمل التحريرية</div>
+      <nav class="sidebar-nav" aria-label="التنقل بين الشاشات">
+        <button type="button" class="nav-btn" data-nav="new">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><line x1="9" y1="15" x2="15" y2="15"/></svg>
+          <span>خبر جديد</span>
+        </button>
+
+        <button type="button" class="nav-btn active" data-nav="review">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="18" height="18" rx="2"/><line x1="12" y1="3" x2="12" y2="21"/></svg>
+          <span>المراجعة والتحرير</span>
+        </button>
+
+        <button type="button" class="nav-btn" data-nav="archive">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/></svg>
+          <span>الأرشيف</span>
+          <span class="nav-badge" id="nav-archive-count">4</span>
+        </button>
+
+        <button type="button" class="nav-btn" data-nav="settings">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
+          <span>الإعدادات</span>
+        </button>
+
+        <button type="button" class="nav-btn" data-nav="login">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><polyline points="10 17 15 12 10 7"/><line x1="15" y1="12" x2="3" y2="12"/></svg>
+          <span>تسجيل الدخول</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <div class="proto-pill">
+          <strong>بيئة نموذج تفاعلي (Demo)</strong><br>
+          تُحفظ التعديلات فعلياً داخل الجلسة (Session) دون اتصال خادم خارجي.
+        </div>
+        <button type="button" class="nav-btn" id="btn-sidebar-logout">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+          <span>إنهاء الجلسة التجريبية</span>
+        </button>
+      </div>
+    </aside>
+
+    <!-- ======================================================================
+         MAIN WORKSPACE
+         ====================================================================== -->
+    <main class="app-main">
+      <!-- Sticky Top Header -->
+      <header class="top-bar">
+        <div class="top-bar-right">
+          <h1 class="page-heading" id="top-page-title">المراجعة والتحرير</h1>
+          <div class="active-story-indicator" id="top-story-context">
+            <span>الخبر الجاري:</span>
+            <strong id="top-story-headline">اليونسكو تطلق مرحلة جديدة لتأهيل 120 مدرسة في العراق</strong>
+          </div>
+        </div>
+
+        <div class="top-bar-left">
+          <div class="status-group" title="حالة الخبر مستقلة عن خطوة التحرير الحالية">
+            <span>حالة الخبر:</span>
+            <span class="story-status-badge" id="top-story-status" data-status="قيد المراجعة">قيد المراجعة</span>
+          </div>
+
+          <div class="save-indicator" id="top-save-indicator" aria-live="polite">
+            <span class="save-dot"></span>
+            <span id="top-save-text">محفوظ في الجلسة</span>
+          </div>
+        </div>
+      </header>
+
+      <!-- Demo Scenario Bar (Always accessible for testing SC-01, SC-02, SC-03) -->
+      <section class="demo-strip" aria-label="شريط السيناريوهات التجريبية">
+        <div class="demo-strip-title">
+          <span class="demo-strip-tag">DEMO DATA</span>
+          <span>سيناريوهات الاختبار المرجعية (Decision Paper 1.0):</span>
+        </div>
+        <div class="scenario-pills">
+          <button type="button" class="scenario-btn active" data-load-scenario="sc01">
+            SC-01: المسار الطبيعي (اليونسكو)
+          </button>
+          <button type="button" class="scenario-btn" data-load-scenario="sc02">
+            SC-02: فشل استيراد الرابط (يونيسف - الديوانية)
+          </button>
+          <button type="button" class="scenario-btn" data-load-scenario="sc03">
+            SC-03: دقة الإسناد ومانع تحريري (مادة إنجليزية)
+          </button>
+          <button type="button" class="scenario-btn" id="btn-reset-demo" title="إعادة ضبط جميع البيانات التجريبية إلى حالتها الافتراضية">
+            إعادة ضبط النموذج
+          </button>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 1: NEW STORY (شاشة خبر جديد)
+           ==================================================================== -->
+      <section class="view-section" id="view-new" data-view="new" aria-label="شاشة خبر جديد">
+        <div class="new-story-container">
+          <article class="ed-card">
+            <div class="ed-card-header">
+              <div>
+                <h2 class="ed-card-title">إدخال مادة خبرية جديدة</h2>
+                <p class="ed-card-subtitle">أدخل رابط المصدر أو الصق النص الأصلي لتوثيق المادة واستخراج الحقائق.</p>
+              </div>
+              <button type="button" class="btn btn-sm" id="btn-clear-new-form">
+                تفريغ الحقول لخبر فارغ
+              </button>
+            </div>
+
+            <!-- Source URL Row -->
+            <div class="url-fetch-row">
+              <div class="field-group">
+                <label class="field-label" for="input-source-url">
+                  <span>رابط المصدر</span>
+                  <span class="field-hint">يبقى الرابط محفوظاً حتى عند تعذر الجلب الآلي</span>
+                </label>
+                <input type="url" id="input-source-url" class="field-input ltr-inline" style="text-align:left;" placeholder="https://example.org/news-item">
+              </div>
+              <button type="button" class="btn" id="btn-fetch-url">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 12a9 9 0 0 1-9 9m9-9a9 9 0 0 0-9-9m9 9H3m9 9a9 9 0 0 1-9-9m9 9c1.66 0 3-4.03 3-9s-1.34-9-3-9m0 18c-1.66 0-3-4.03-3-9s1.34-9 3-9"/></svg>
+                <span>قراءة الرابط (تجريبي)</span>
+              </button>
+            </div>
+
+            <!-- Metadata Grid -->
+            <div class="meta-inputs-grid">
+              <div class="field-group">
+                <label class="field-label" for="input-source-name">اسم المصدر / الجهة</label>
+                <input type="text" id="input-source-name" class="field-input" placeholder="مثال: منظمة اليونسكو، واع...">
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="input-publish-date">تاريخ النشر</label>
+                <input type="date" id="input-publish-date" class="field-input">
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="input-category">تصنيف الخبر</label>
+                <select id="input-category" class="field-select">
+                  <option value="تعليمي / خدمي">تعليمي / خدمي</option>
+                  <option value="خدمي / بيئي">خدمي / بيئي</option>
+                  <option value="بيئي / محلي">بيئي / محلي</option>
+                  <option value="محلي">محلي</option>
+                  <option value="سياسي">سياسي</option>
+                  <option value="اقتصادي">اقتصادي</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="input-source-lang">لغة المادة الأصلية</label>
+                <select id="input-source-lang" class="field-select">
+                  <option value="العربية">العربية</option>
+                  <option value="الإنجليزية">الإنجليزية (ترجمة تحريرية)</option>
+                </select>
+              </div>
+            </div>
+
+            <!-- Import Alert Banner -->
+            <div id="import-status-banner" class="alert-box alert-info" style="margin-top:14px;">
+              <div id="import-status-text">
+                الرابط جاهز. يمكنك قراءة المادة أو تعديل النص الأصلي أدناه مباشرة قبل استخراج الحقائق.
+              </div>
+              <button type="button" class="btn btn-sm" id="btn-paste-demo-text" hidden>
+                لصق النص الأصلي التجريبي (SC-02)
+              </button>
+            </div>
+
+            <!-- Original Source Textarea -->
+            <div class="field-group" style="margin-top:14px;">
+              <label class="field-label" for="input-source-text">
+                <span>النص الأصلي للمادة الخبرية</span>
+                <span class="field-hint">يُستخدم كمرجع وحيد لاستخراج الحقائق ومنع الاختلاق</span>
+              </label>
+              <textarea id="input-source-text" class="field-textarea" placeholder="الصق النص الكامل للخبر من المصدر هنا..."></textarea>
+
+              <div class="sufficiency-bar">
+                <span id="source-char-counter">0 حرف (الحد الأدنى للاستخراج: 50 حرفاً)</span>
+                <span class="sufficiency-badge short" id="source-sufficiency-badge">مادة غير كافية</span>
+              </div>
+            </div>
+
+            <!-- Actions Bar -->
+            <div class="new-story-actions">
+              <div class="primary-actions-group">
+                <button type="button" class="btn btn-primary" id="btn-extract-facts">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/></svg>
+                  <span>استخراج الحقائق والمتابعة للمراجعة</span>
+                </button>
+                <button type="button" class="btn" id="btn-new-save-draft">
+                  حفظ المسودة
+                </button>
+              </div>
+              <span class="field-hint" id="extract-guard-note">
+                لا يُسمح بالتوليد من عنوان رابط أو مقتطف ناقص.
+              </span>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 2: REVIEW & EDIT (شاشة المراجعة والتحرير — أعلى أولوية)
+           ==================================================================== -->
+      <section class="view-section active" id="view-review" data-view="review" aria-label="شاشة المراجعة والتحرير">
+        <!-- Workflow Step Indicator (Strictly separated from Story Status) -->
+        <div class="workflow-bar" aria-label="شريط خطوات التحرير">
+          <div class="workflow-bar-label">
+            <strong>خطوة العمل التحريرية الحالية</strong>
+            <span>توضح موضعك داخل المراجعة — مستقلة عن «حالة الخبر» في الشريط العلوي</span>
+          </div>
+
+          <div class="workflow-steps" role="tablist">
+            <button type="button" class="step-pill done" data-step="source">
+              <span class="step-num">1</span>
+              <span>المصدر</span>
+            </button>
+            <button type="button" class="step-pill active" data-step="facts">
+              <span class="step-num">2</span>
+              <span>الحقائق</span>
+            </button>
+            <button type="button" class="step-pill" data-step="draft">
+              <span class="step-num">3</span>
+              <span>الصياغة</span>
+            </button>
+            <button type="button" class="step-pill" data-step="approval">
+              <span class="step-num">4</span>
+              <span>مراجعة الاعتماد</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Mobile Quick Switcher between Original Source & Editor -->
+        <div class="mobile-workspace-switcher" aria-label="التبديل بين المحرر والمصدر على الهاتف">
+          <button type="button" class="mobile-switch-btn active" data-mobile-switch="editor" id="btn-mobile-show-editor">
+            الحقائق والمحرر
+          </button>
+          <button type="button" class="mobile-switch-btn" data-mobile-switch="source" id="btn-mobile-show-source">
+            المصدر الأصلي (للمقارنة)
+          </button>
+        </div>
+
+        <!-- Desktop Split Workspace -->
+        <div class="review-split-grid" id="review-split-grid" data-mobile-pane="editor">
+          <!-- ================================================================
+               CARD 1: ORIGINAL SOURCE CARD (بطاقة المصدر الأصلي)
+               ================================================================ -->
+          <article class="source-card" id="card-source">
+            <div class="ed-card-header">
+              <div>
+                <h2 class="ed-card-title">
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                  <span>بطاقة المصدر الأصلي</span>
+                </h2>
+                <p class="ed-card-subtitle">مرجع المقارنة المباشرة للأسماء والأرقام والتواريخ</p>
+              </div>
+              <button type="button" class="btn btn-sm" id="btn-edit-source-return">
+                تعديل بيانات المصدر
+              </button>
+            </div>
+
+            <div class="source-meta-grid">
+              <div class="source-meta-item">
+                <span class="source-meta-label">اسم المصدر</span>
+                <span class="source-meta-val" id="review-source-name">منظمة اليونسكو — العراق</span>
+              </div>
+              <div class="source-meta-item">
+                <span class="source-meta-label">تاريخ النشر والتصنيف</span>
+                <span class="source-meta-val" id="review-source-date">2026-09-28 • تعليمي / خدمي</span>
+              </div>
+              <div class="source-meta-item full">
+                <span class="source-meta-label">رابط المصدر الموثق</span>
+                <span class="source-meta-val ltr-inline" id="review-source-url" style="font-family:var(--font-mono);font-size:12px;color:#1D4ED8;">https://www.unesco.org/ar/articles/iraq-education-initiative-2026</span>
+              </div>
+            </div>
+
+            <div class="source-reading-box" id="review-source-body">
+              <!-- Populated dynamically from unified state -->
+            </div>
+          </article>
+
+          <!-- ================================================================
+               EDITORIAL WORK COLUMN (الحقائق + الصياغة + الاعتماد)
+               ================================================================ -->
+          <div class="editorial-work-stack">
+            <!-- ==============================================================
+                 CARD 2: EXTRACTED FACTS CARD (بطاقة الحقائق المستخرجة)
+                 ============================================================== -->
+            <article class="ed-card" id="card-facts">
+              <div class="ed-card-header">
+                <div>
+                  <h2 class="ed-card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+                    <span>بطاقة الحقائق المستخرجة والنواقص</span>
+                  </h2>
+                  <p class="ed-card-subtitle">استخراج آلي من نص المصدر فقط — لا يمثل تحققاً صحفياً خارجياً</p>
+                </div>
+                <span class="fact-badge sourced" id="facts-summary-badge">6 عناصر مستخرجة</span>
+              </div>
+
+              <!-- Editorial Blocker Alert (Visible when unattributed claim exists, e.g. SC-03) -->
+              <div id="editorial-blocker-box" class="alert-box alert-danger" style="margin-bottom:12px;" hidden>
+                <div>
+                  <strong>مانع تحريري يمنع الاعتماد:</strong>
+                  <span id="editorial-blocker-text">
+                    يتضمن النص ادعاءً غير مسند لجهة رسمية محددة («إغلاق 5 مصانع الأسبوع المقبل») وتصريحاً يحتاج تثبيت الإسناد.
+                  </span>
+                </div>
+                <button type="button" class="btn btn-sm btn-danger-outline" id="btn-resolve-blocker">
+                  استبعاد الادعاء غير المسند وتصحيح الإسناد
+                </button>
+              </div>
+
+              <!-- Structured Facts Table -->
+              <div class="facts-table" id="facts-list-container">
+                <!-- Populated dynamically from unified story state -->
+              </div>
+            </article>
+
+            <!-- ==============================================================
+                 CARD 3: DRAFTING & EDITOR CARD (بطاقة الصياغة والتحرير)
+                 ============================================================== -->
+            <article class="ed-card" id="card-draft">
+              <div class="ed-card-header">
+                <div>
+                  <h2 class="ed-card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                    <span>بطاقة الصياغة والتحرير</span>
+                  </h2>
+                  <p class="ed-card-subtitle">حرر الصيغ وقارنها بالمصدر — تحفظ جميع التعديلات تلقائياً لكل صيغة</p>
+                </div>
+                <span class="radio-meter" id="radio-duration-meter" data-fit="optimal">
+                  قراءة إذاعية: ~28 ثانية (64 كلمة)
+                </span>
+              </div>
+
+              <!-- Headline Input -->
+              <div class="field-group">
+                <label class="field-label" for="editor-headline-input">
+                  <span>عنوان الخبر الرئيسي</span>
+                  <span class="field-hint" id="headline-char-count">0 حرف</span>
+                </label>
+                <input type="text" id="editor-headline-input" class="field-input" style="font-weight:700;font-size:15.5px;" placeholder="عنوان الخبر الواضح والمسند...">
+              </div>
+
+              <!-- Format Tabs -->
+              <div class="format-tabs-bar">
+                <div class="format-tabs" role="tablist" aria-label="صيغ الخبر">
+                  <button type="button" class="format-tab active" data-format="radio" role="tab" aria-selected="true">
+                    <span>النص الإذاعي (الافتراضي)</span>
+                  </button>
+                  <button type="button" class="format-tab" data-format="web" role="tab" aria-selected="false">
+                    <span>خبر الموقع</span>
+                  </button>
+                  <button type="button" class="format-tab" data-format="facebook" role="tab" aria-selected="false">
+                    <span>منشور فيسبوك</span>
+                  </button>
+                  <button type="button" class="format-tab" data-format="urgent" role="tab" aria-selected="false">
+                    <span>الشريط العاجل (عند الحاجة)</span>
+                  </button>
+                </div>
+              </div>
+
+              <!-- Optional Urgent Ticker Gate -->
+              <div id="urgent-optin-box" class="alert-box alert-warn" style="margin-bottom:10px;" hidden>
+                <div>
+                  <strong>الشريط العاجل اختياري عند الحاجة فقط:</strong>
+                  <span>لم يتم تفعيل الشريط العاجل لهذا الخبر بعد وفق سياسة التحرير.</span>
+                </div>
+                <button type="button" class="btn btn-sm" id="btn-enable-urgent">
+                  توليد وتفعيل الشريط العاجل
+                </button>
+              </div>
+
+              <!-- Main Format Textarea -->
+              <textarea id="editor-format-textarea" class="editor-textarea" aria-label="محرر صيغة الخبر"></textarea>
+
+              <div class="editor-footer-tools">
+                <span id="editor-format-hint">الصيغة الحالية: النص الإذاعي المعد للقراءة المباشرة على الهواء (الهدف: 20–40 ثانية).</span>
+                <div style="display:flex;gap:8px;">
+                  <button type="button" class="btn btn-sm" id="btn-copy-current-format">
+                    نسخ الصيغة للنشر اليدوي
+                  </button>
+                </div>
+              </div>
+            </article>
+
+            <!-- ==============================================================
+                 CARD 4: ACTIONS & APPROVAL CARD (بطاقة الإجراءات ومراجعة الاعتماد)
+                 ============================================================== -->
+            <article class="ed-card" id="card-approval">
+              <div class="ed-card-header">
+                <div>
+                  <h2 class="ed-card-title">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+                    <span>بطاقة الإجراءات ومراجعة الاعتماد البشري</span>
+                  </h2>
+                  <p class="ed-card-subtitle">الذكاء الاصطناعي يصيغ ولا يعتمد — القرار النهائي بيد المحرر البشري حصراً</p>
+                </div>
+                <span class="sufficiency-badge short" id="approval-readiness-badge">بانتظار استكمال شروط المراجعة</span>
+              </div>
+
+              <!-- Human Review Checkboxes -->
+              <div class="verification-checklist">
+                <label class="check-item">
+                  <input type="checkbox" id="chk-verify-facts">
+                  <span>راجعت النص الأصلي وطابقت جميع <strong>الأسماء والأرقام والتواريخ</strong> مع المصدر المرفق.</span>
+                </label>
+                <label class="check-item">
+                  <input type="checkbox" id="chk-verify-attribution">
+                  <span>تأكدت من دقة <strong>إسناد التصريحات</strong>، وخلو جميع الصيغ من أي ادعاء غير مذكور في المصدر.</span>
+                </label>
+              </div>
+
+              <!-- Post-Approval Manual Publish Box (Shown when story is Approved or Published) -->
+              <div id="post-approval-publish-box" class="alert-box alert-success" style="margin-bottom:14px;" hidden>
+                <div>
+                  <strong id="post-approval-title">الخبر معتمد وجاهز للنشر اليدوي الخارجي.</strong>
+                  <span id="post-approval-desc">النشر يتم يدوياً خارج النظام. بعد نشرك للخبر على الهواء أو المنصات، سجّل حالته كـ «منشور».</span>
+                </div>
+                <button type="button" class="btn btn-sm btn-primary" id="btn-mark-published-review">
+                  تسجيل الحالة كـ «منشور»
+                </button>
+              </div>
+
+              <!-- Action Buttons -->
+              <div class="approval-action-bar">
+                <div class="primary-actions-group">
+                  <button type="button" class="btn btn-success" id="btn-approve-story" disabled>
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"/></svg>
+                    <span>اعتماد الخبر</span>
+                  </button>
+
+                  <button type="button" class="btn" id="btn-focus-approval-step">
+                    مراجعة الاعتماد
+                  </button>
+
+                  <button type="button" class="btn" id="btn-review-save-draft">
+                    حفظ المسودة
+                  </button>
+                </div>
+
+                <div class="secondary-actions-group">
+                  <button type="button" class="btn btn-danger-outline btn-sm" id="btn-exclude-story">
+                    استبعاد المسودة
+                  </button>
+                </div>
+              </div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 3: ARCHIVE (شاشة الأرشيف العملي)
+           ==================================================================== -->
+      <section class="view-section" id="view-archive" data-view="archive" aria-label="شاشة الأرشيف">
+        <div class="archive-container">
+          <article class="ed-card">
+            <div class="ed-card-header">
+              <div>
+                <h2 class="ed-card-title">أرشيف الأخبار والمسودات</h2>
+                <p class="ed-card-subtitle">استعرض المسودات والأخبار المعتمدة والمنشورة، وافتح أي خبر لاستكمال العمل عليه.</p>
+              </div>
+              <button type="button" class="btn btn-primary btn-sm" id="btn-archive-new-story">
+                + إنشاء خبر جديد
+              </button>
+            </div>
+
+            <div class="archive-controls">
+              <div class="archive-search-wrap">
+                <input type="search" id="archive-search-input" class="field-input" placeholder="ابحث بعنوان الخبر، اسم المصدر، أو التصنيف...">
+              </div>
+
+              <div class="archive-filter-pills" id="archive-filter-pills" role="group" aria-label="تصفية حسب الحالة">
+                <button type="button" class="filter-pill active" data-filter-status="all">الكل</button>
+                <button type="button" class="filter-pill" data-filter-status="مسودة">مسودة</button>
+                <button type="button" class="filter-pill" data-filter-status="قيد المراجعة">قيد المراجعة</button>
+                <button type="button" class="filter-pill" data-filter-status="معتمد">معتمد</button>
+                <button type="button" class="filter-pill" data-filter-status="منشور">منشور</button>
+                <button type="button" class="filter-pill" data-filter-status="مستبعد">مستبعد</button>
+              </div>
+            </div>
+          </article>
+
+          <div class="archive-list" id="archive-list-container">
+            <!-- Populated dynamically from unified stories state -->
+          </div>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 4: SETTINGS (شاشة الإعدادات المختصرة)
+           ==================================================================== -->
+      <section class="view-section" id="view-settings" data-view="settings" aria-label="شاشة الإعدادات">
+        <div class="settings-container">
+          <article class="ed-card">
+            <div class="ed-card-header">
+              <div>
+                <h2 class="ed-card-title">إعدادات غرفة الأخبار المعتمدة (MVP 1.0)</h2>
+                <p class="ed-card-subtitle">تضبط هذه الخيارات القوالب التحريرية الافتراضية وطول النص الإذاعي المستهدف.</p>
+              </div>
+            </div>
+
+            <div class="settings-grid">
+              <div class="field-group">
+                <label class="field-label" for="setting-station-name">اسم الإذاعة</label>
+                <input type="text" id="setting-station-name" class="field-input" value="NAS FM — إذاعة ناس">
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="setting-editorial-style">الأسلوب التحريري</label>
+                <select id="setting-editorial-style" class="field-select">
+                  <option value="فصحى إخبارية إذاعية مبسطة">فصحى إخبارية إذاعية مبسطة (الافتراضي)</option>
+                  <option value="فصحى رسمية موجزة">فصحى رسمية موجزة</option>
+                  <option value="إخباري مباشر سريع">إخباري مباشر سريع</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="setting-radio-length">طول النص الإذاعي المستهدف</label>
+                <select id="setting-radio-length" class="field-select">
+                  <option value="20-40">20 إلى 40 ثانية (45–90 كلمة — الافتراضي)</option>
+                  <option value="15-25">15 إلى 25 ثانية (خبر موجز سريع)</option>
+                  <option value="40-60">40 إلى 60 ثانية (تقرير إذاعي موسع)</option>
+                </select>
+              </div>
+
+              <div class="field-group">
+                <label class="field-label" for="setting-model-provider">الموديل أو مزود المعالجة (موديل نصي واحد)</label>
+                <select id="setting-model-provider" class="field-select">
+                  <option value="OpenAI — GPT-4.1 (عبر الخادم)">OpenAI — GPT-4.1 (عبر الخادم)</option>
+                  <option value="Anthropic — Claude 3.5 Sonnet (عبر الخادم)">Anthropic — Claude 3.5 Sonnet (عبر الخادم)</option>
+                  <option value="Google — Gemini 2.5 Pro (عبر الخادم)">Google — Gemini 2.5 Pro (عبر الخادم)</option>
+                </select>
+              </div>
+            </div>
+
+            <div class="alert-box alert-warn" id="settings-sim-notice" style="margin-top:16px;">
+              <div>
+                <strong>ملاحظة البروتوتايب حول الاتصال ومفاتيح API:</strong>
+                <span>هذا النموذج يعمل محلياً داخل المتصفح بدون Backend. لا يتم إرسال أي طلبات لشبكة خارجية، وفي النسخة الإنتاجية يُحفظ مفتاح الـ API في الخادم حصراً ولا يُكشف للمتصفح.</span>
+              </div>
+            </div>
+
+            <div class="new-story-actions">
+              <div class="primary-actions-group">
+                <button type="button" class="btn btn-primary" id="btn-save-settings">
+                  حفظ الإعدادات في الجلسة
+                </button>
+                <button type="button" class="btn" id="btn-simulate-model-check">
+                  فحص إعدادات القالب (محاكاة محلية)
+                </button>
+              </div>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ====================================================================
+           VIEW 5: LOGIN (شاشة تسجيل الدخول)
+           ==================================================================== -->
+      <section class="view-section" id="view-login" data-view="login" aria-label="شاشة تسجيل الدخول">
+        <div class="login-wrapper">
+          <div class="login-brand-header">
+            <div class="login-brand-badge">
+              <span>NAS FM</span>
+              <span>•</span>
+              <span>NEWSROOM 1.0</span>
+            </div>
+            <h2 style="font-size:22px;font-weight:700;">دخول المحرر المناوب</h2>
+            <p style="font-size:13.5px;color:var(--text-muted);margin-top:4px;">
+              منصة التحرير الإخباري الداخلية — مستخدم واحد
+            </p>
+          </div>
+
+          <article class="ed-card">
+            <div id="login-error-box" class="alert-box alert-danger" style="margin-bottom:14px;" hidden>
+              <span id="login-error-text">تعذر الدخول: يرجى إدخال اسم المستخدم وكلمة المرور بشكل صحيح.</span>
+            </div>
+
+            <div class="field-group" style="margin-bottom:12px;">
+              <label class="field-label" for="login-username">اسم المستخدم أو البريد التحريري</label>
+              <input type="text" id="login-username" class="field-input ltr-inline" style="text-align:left;" value="editor@nasfm.iq" placeholder="editor@nasfm.iq">
+            </div>
+
+            <div class="field-group" style="margin-bottom:16px;">
+              <label class="field-label" for="login-password">كلمة المرور</label>
+              <input type="password" id="login-password" class="field-input ltr-inline" style="text-align:left;" value="nas-demo-2026" placeholder="••••••••">
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:8px;">
+              <button type="button" class="btn btn-primary" id="btn-submit-login" style="width:100%;">
+                دخول إلى غرفة الأخبار
+              </button>
+              <button type="button" class="btn btn-sm" id="btn-trigger-login-error" style="width:100%;">
+                تجربة حالة خطأ الدخول (اختبار بصري)
+              </button>
+            </div>
+
+            <p style="margin-top:14px;font-size:12px;color:var(--text-muted);line-height:1.5;text-align:center;">
+              تنبيه: هذه شاشة دخول تجريبية داخل نموذج HTML مستقل؛ لا توجد مصادقة خادمية أو جلسة HTTPS حقيقية في هذه المرحلة.
+            </p>
+          </article>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <!-- ========================================================================
+       APPLICATION STATE & INTERACTIVE LOGIC (Vanilla ES6, Zero External Deps)
+       ======================================================================== -->
+  <script>
+    (() => {
+      const STORAGE_KEY = 'nas_newsroom_redesign_state_v1';
+
+      /* ----------------------------------------------------------------------
+         1. REFERENCE DEMO DATA (Aligned with NAS Newsroom Scenarios v1.0)
+         ---------------------------------------------------------------------- */
+      function createInitialState() {
+        return {
+          currentView: 'review',
+          currentScenario: 'sc01',
+          activeStoryId: 'story-sc01',
+          activeStep: 'facts',     // 'source' | 'facts' | 'draft' | 'approval'
+          activeFormat: 'radio',   // 'radio' | 'web' | 'facebook' | 'urgent'
+          mobilePane: 'editor',    // 'editor' | 'source'
+          archiveFilter: 'all',
+          archiveSearch: '',
+          lastSavedAt: '13:35:00',
+          settings: {
+            stationName: 'NAS FM — إذاعة ناس',
+            editorialStyle: 'فصحى إخبارية إذاعية مبسطة',
+            radioLength: '20-40',
+            modelProvider: 'OpenAI — GPT-4.1 (عبر الخادم)'
+          },
+          stories: [
+            {
+              id: 'story-sc01',
+              scenarioCode: 'sc01',
+              status: 'قيد المراجعة', // 'مسودة' | 'قيد المراجعة' | 'معتمد' | 'منشور' | 'مستبعد'
+              sourceUrl: 'https://www.unesco.org/ar/articles/iraq-education-initiative-2026',
+              sourceName: 'منظمة اليونسكو — المكتب الإقليمي في العراق',
+              publishDate: '2026-09-28',
+              category: 'تعليمي / خدمي',
+              sourceLang: 'العربية',
+              importFailed: false,
+              importMessage: 'تمت قراءة المادة الأصلية وتوثيق بيانات المصدر بنجاح.',
+              sourceText:
+                'أعلنت منظمة الأمم المتحدة للتربية والعلم والثقافة (اليونسكو)، اليوم الاثنين 28 سبتمبر/أيلول 2026 في بغداد، عن إطلاق المرحلة الثانية من برنامج تأهيل المدارس الحكومية وتدريب المعلمين في ست محافظات عراقية، بالتعاون مع وزارة التربية العراقية.\n\n' +
+                'وأفاد بيان المنظمة أن البرنامج يستهدف تأهيل 120 مدرسة متضررة وتدريب 4,500 معلم ومعلمة على مهارات التعليم الرقمي والدمج التربوي خلال العام الدراسي 2026–2027، مما يتيح عودة نحو 65 ألف طالب وطالبة إلى بيئة تعليمية آمنة.\n\n' +
+                'وقال مدير مكتب اليونسكو في العراق، جون بول بيكر، في البيان: «إن الاستثمار في البنية التحتية المدرسية وتأهيل الكوادر التعليمية يمثلان حجر الزاوية لضمان استمرارية التعليم وتقليص الفجوة التعليمية في المناطق الأكثر احتياجاً».\n\n' +
+                'ولم يتطرق البيان إلى القيمة المالية الإجمالية المخصصة لهذه المرحلة أو الجدول الزمني التفصيلي لتوزيع المنح على المحافظات الست.',
+              hasBlocker: false,
+              blockerReason: '',
+              facts: [
+                { label: 'الجهة الفاعلة', value: 'منظمة اليونسكو بالتعاون مع وزارة التربية العراقية', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التاريخ والمكان', value: '28 سبتمبر 2026 — بغداد (يشمل 6 محافظات عراقية)', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'الأرقام والأسماء', value: '120 مدرسة، 4,500 معلم ومعلمة، 65 ألف طالب — جون بول بيكر (مدير مكتب اليونسكو)', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التصريحات', value: 'جون بول بيكر: «الاستثمار في البنية المدرسية وتأهيل الكوادر يمثلان حجر الزاوية لضمان استمرارية التعليم»', status: 'وارد ومنسوب', type: 'sourced' },
+                { label: 'النواقص', value: 'القيمة المالية الإجمالية للمرحلة الثانية وأسماء المحافظات الست التفصيلية', status: 'غير مذكور في المصدر', type: 'missing' }
+              ],
+              headline: 'اليونسكو تطلق مرحلة جديدة لتأهيل 120 مدرسة وتدريب 4500 معلم في العراق',
+              urgentEnabled: false,
+              formats: {
+                radio: 'أعلنت منظمة اليونسكو في بغداد، اليوم الاثنين، إطلاق المرحلة الثانية من برنامج تأهيل المدارس الحكومية بالتعاون مع وزارة التربية العراقية. ويشمل البرنامج تأهيل مئة وعشرين مدرسة وتدريب أربعة آلاف وخمسمئة معلم ومعلمة في ست محافظات خلال العام الدراسي الجديد، بما يخدم نحو خمسة وستين ألف طالب. وأكد مدير مكتب اليونسكو في العراق، جون بول بيكر، أن تطوير البنية المدرسية والكوادر يمثل حجر الزاوية لتقليص الفجوة التعليمية، فيما لم يحدد البيان الكلفة المالية للمشروع.',
+                web: 'أطلقت منظمة اليونسكو بالتعاون مع وزارة التربية العراقية، في 28 سبتمبر 2026، المرحلة الثانية من برنامج دعم التعليم في 6 محافظات عراقية. ويستهدف البرنامج تأهيل 120 مدرسة وتدريب 4,500 معلم ومعلمة لصالح 65 ألف طالب وطالبة خلال العام الدراسي 2026–2027، وفق تصريح مدير مكتب المنظمة جون بول بيكر، بينما لم يذكر البيان حجم التمويل المخصص.',
+                facebook: 'تأهيل 120 مدرسة وتدريب 4,500 معلم.. اليونسكو تطلق بالتعاون مع وزارة التربية المرحلة الثانية من برنامج دعم التعليم في 6 محافظات عراقية لخدمة نحو 65 ألف طالب وطالبة خلال العام الدراسي 2026–2027.',
+                urgent: 'اليونسكو تطلق برنامجاً لتأهيل 120 مدرسة وتدريب 4500 معلم في 6 محافظات عراقية بالتعاون مع وزارة التربية'
+              },
+              checks: {
+                factsVerified: false,
+                attributionVerified: false
+              },
+              updatedAt: 'اليوم 13:30'
+            },
+            {
+              id: 'story-sc02',
+              scenarioCode: 'sc02',
+              status: 'مسودة',
+              sourceUrl: 'https://www.unicef.org/iraq/ar/reports/diwaniyah-water-scarcity-oct2026',
+              sourceName: 'منظمة اليونيسف (UNICEF Iraq)',
+              publishDate: '2026-10-01',
+              category: 'خدمي / بيئي',
+              sourceLang: 'العربية',
+              importFailed: true,
+              importMessage: 'تعذّر قراءة الرابط آلياً (الموقع المصدر يمنع الجلب المباشر). بقي الرابط محفوظاً كمصدر — يرجى لصق النص الأصلي يدوياً للمتابعة.',
+              sourceText: '',
+              demoPasteText:
+                'حذرت منظمة الأمم المتحدة للطفولة (اليونيسف)، في تقرير ميداني صدر يوم الخميس 1 أكتوبر/تشرين الأول 2026، من تفاقم شح مياه الشرب في القرى الشرقية بمحافظة الديوانية جنوبي العراق نتيجة انخفاض مناسيب الجداول الفرعية.\n\n' +
+                'وأوضح التقرير أن 18 تجمعاً قروياً يضم نحو 24 ألف نسمة، بينهم 9,200 طفل، يعتمدون حالياً على صهاريج المياه المتنقلة بشكل شبه يومي. وأشارت المنظمة إلى تركيب 6 محطات تحلية صغيرة بالطاقة الشمسية بالتنسيق مع مديرية ماء الديوانية، مع الحاجة العاجلة إلى تمويل إضافي لتغطية بقية القرى قبل فصل الصيف المقبل.\n\n' +
+                'ولم يتضمن التقرير أرقاماً حول حجم العجز المالي المطلوب لاستكمال المحطات المتبقية.',
+              hasBlocker: false,
+              blockerReason: '',
+              facts: [
+                { label: 'الجهة الفاعلة', value: 'منظمة اليونيسف بالتنسيق مع مديرية ماء الديوانية', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التاريخ والمكان', value: '1 أكتوبر 2026 — القرى الشرقية في محافظة الديوانية', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'الأرقام والأسماء', value: '18 تجمعاً قروياً، 24,000 نسمة، 9,200 طفل، تركيب 6 محطات تحلية بالطاقة الشمسية', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التصريحات', value: 'تقرير ميداني لليونيسف يحذر من الاعتماد اليومي على الصهاريج والحاجة لتوسيع محطات التحلية', status: 'وارد ومنسوب', type: 'sourced' },
+                { label: 'النواقص', value: 'قيمة العجز المالي المطلوب لاستكمال محطات التحلية المتبقية', status: 'غير مذكور في المصدر', type: 'missing' }
+              ],
+              headline: 'اليونيسف تحذر من شح مياه الشرب في 18 قرية بالديوانية وتركب 6 محطات تحلية',
+              urgentEnabled: false,
+              formats: {
+                radio: 'حذرت منظمة اليونيسف في تقرير ميداني صدر الخميس من تفاقم شح مياه الشرب في ثمانية عشر تجمعاً قروياً شرقي محافظة الديوانية. وأوضحت المنظمة أن نحو أربعة وعشرين ألف نسمة، بينهم أكثر من تسعة آلاف طفل، يعتمدون على صهاريج المياه المتنقلة. وأشارت اليونيسف إلى نصب ست محطات تحلية تعمل بالطاقة الشمسية بالتنسيق مع مديرية ماء الديوانية، مؤكدة الحاجة إلى دعم إضافي لتغطية بقية القرى.',
+                web: 'أفاد تقرير ميداني لمنظمة اليونيسف، صادر في 1 أكتوبر 2026، بتأثر 24 ألف نسمة بينهم 9,200 طفل بشح مياه الشرب في 18 قرية شرقي الديوانية. ونفذت المنظمة مع مديرية ماء الديوانية تركيب 6 محطات تحلية بالطاقة الشمسية، فيما لم يحدد التقرير قيمة التمويل المطلوب للمرحلة المقبلة.',
+                facebook: 'تقرير لليونيسف يرصد شح مياه الشرب في 18 قرية شرقي الديوانية يقطنها 24 ألف نسمة، وتنفيذ 6 محطات تحلية بالطاقة الشمسية بالتعاون مع مديرية ماء المحافظة.',
+                urgent: 'اليونيسف: شح المياه يؤثر على 18 قرية في الديوانية ونصب 6 محطات تحلية بالتنسيق مع مديرية الماء'
+              },
+              checks: {
+                factsVerified: false,
+                attributionVerified: false
+              },
+              updatedAt: 'اليوم 12:45'
+            },
+            {
+              id: 'story-sc03',
+              scenarioCode: 'sc03',
+              status: 'قيد المراجعة',
+              sourceUrl: 'https://www.unicef.org/iraq/press-releases/protecting-river-basins-2026',
+              sourceName: 'منظمة اليونيسف (بيان صحفي بالإنجليزية)',
+              publishDate: '2026-09-28',
+              category: 'بيئي / محلي',
+              sourceLang: 'الإنجليزية',
+              importFailed: false,
+              importMessage: 'مادة باللغة الإنجليزية تتضمن أرقاماً وتصريحات؛ تم فحص دقة الإسناد.',
+              sourceText:
+                'BAGHDAD, 28 September 2026 — UNICEF called today for urgent community and institutional measures to protect river basins in southern Iraq from untreated industrial discharge, noting that clean water access affects over 180,000 children across three southern districts.\n\n' +
+                'According to the statement, water quality monitoring stations recorded a 22% rise in salinity levels between July and September 2026. The statement emphasized that "protecting river water quality is an immediate public health priority for families and schools before the winter season."\n\n' +
+                'Local observers also claimed that five factories might be shut down next week, though no official authority or named spokesperson was cited for that enforcement measure.',
+              hasBlocker: true,
+              blockerReason: 'يتضمن المستخرج ادعاءً غير مسند لجهة رسمية محددة («إغلاق 5 مصانع الأسبوع المقبل») وتصريحاً منسوباً لـ «مراقبين غير مسمين». لا يمكن الاعتماد قبل حسم الإسناد.',
+              facts: [
+                { label: 'الجهة الفاعلة', value: 'منظمة اليونيسف في العراق (بيان رسمي)', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التاريخ والمكان', value: '28 سبتمبر 2026 — أحواض الأنهار في جنوب العراق (3 أقضية)', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'الأرقام والأسماء', value: '180,000 طفل متأثر، ارتفاع الملوحة بنسبة 22% بين يوليو وسبتمبر 2026', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التصريحات والادعاءات', value: 'ادعاء إغلاق 5 مصانع الأسبوع المقبل (منسوب لمراقبين غير مسمين بدون مصدر رسمي)', status: 'المتحدث غير محدد — مراجعة إلزامية', type: 'review-req' },
+                { label: 'النواقص', value: 'أسماء الأقضية الثلاثة والجهة الحكومية المسؤولة عن الرقابة الصناعية', status: 'غير مذكور في المصدر', type: 'missing' }
+              ],
+              headline: 'اليونيسف تدعو لحماية الأنهار في جنوب العراق بعد ارتفاع الملوحة 22%',
+              urgentEnabled: false,
+              formats: {
+                radio: 'دعت منظمة اليونيسف، في بيان صدر ببغداد، إلى إجراءات عاجلة لحماية أحواض الأنهار في جنوب العراق من التصريف الصناعي غير المعالج، مشيرة إلى أن توفر المياه النقية يؤثر على أكثر من مئة وثمانين ألف طفل في ثلاثة أقضية جنوبية. وأفاد البيان بأن محطات الرصد سجلت ارتفاعاً في مستويات الملوحة بنسبة اثنين وعشرين بالمئة بين شهري تموز وأيلول، مؤكداً أن حماية جودة مياه الأنهار أولوية صحية عاجلة للعائلات والمدارس قبل فصل الشتاء.',
+                web: 'طالبت منظمة اليونيسف في بيان صادر بتاريخ 28 سبتمبر 2026 بحماية أحواض الأنهار جنوبي العراق من الملوثات الصناعية، موضحة أن جودة المياه تمس أكثر من 180 ألف طفل في 3 أقضية، مع تسجيل ارتفاع في الملوحة بنسبة 22% بين يوليو وسبتمبر 2026.',
+                facebook: 'اليونيسف تدعو لحماية مياه الأنهار في جنوب العراق من التلوث الصناعي بعد تسجيل ارتفاع بنسبة 22% في الملوحة، حفاظاً على صحة أكثر من 180 ألف طفل.',
+                urgent: 'اليونيسف تدعو لحماية الأنهار في جنوب العراق بعد ارتفاع الملوحة بنسبة 22%'
+              },
+              checks: {
+                factsVerified: false,
+                attributionVerified: false
+              },
+              updatedAt: 'اليوم 13:15'
+            },
+            {
+              id: 'story-arch-04',
+              scenarioCode: 'custom',
+              status: 'منشور',
+              sourceUrl: 'https://ina.iq/ar/local/2026-09-27-baghdad-books',
+              sourceName: 'وكالة الأنباء العراقية (واع)',
+              publishDate: '2026-09-27',
+              category: 'محلي',
+              sourceLang: 'العربية',
+              importFailed: false,
+              importMessage: 'تمت قراءة الرابط بنجاح.',
+              sourceText:
+                'أعلنت اللجنة المنظمة لمعرض بغداد الدولي للكتاب، يوم الأحد 27 سبتمبر 2026، مشاركة 340 دار نشر محلية وعربية في الدورة الجديدة للمعرض على أرض معرض بغداد الدولي، مع تخصيص أجنحة خاصة لكتب الأطفال والندوات الثقافية اليومية على مدار عشرة أيام.',
+              hasBlocker: false,
+              blockerReason: '',
+              facts: [
+                { label: 'الجهة الفاعلة', value: 'اللجنة المنظمة لمعرض بغداد الدولي للكتاب', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'التاريخ والمكان', value: '27 سبتمبر 2026 — أرض معرض بغداد الدولي (لمدة 10 أيام)', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'الأرقام والأسماء', value: '340 دار نشر محلية وعربية', status: 'وارد في المصدر', type: 'sourced' },
+                { label: 'النواقص', value: 'أسماء الدول المشاركة وأسعار التذاكر', status: 'غير مذكور في المصدر', type: 'missing' }
+              ],
+              headline: 'مشاركة 340 دار نشر محلية وعربية في معرض بغداد الدولي للكتاب',
+              urgentEnabled: false,
+              formats: {
+                radio: 'أعلنت اللجنة المنظمة لمعرض بغداد الدولي للكتاب مشاركة ثلاثمئة وأربعين دار نشر محلية وعربية في الدورة الجديدة للمعرض. وتستمر الفعاليات لمدة عشرة أيام على أرض معرض بغداد الدولي، متضمنة أجنحة لكتب الأطفال وندوات ثقافية يومية.',
+                web: 'تنطلق فعاليات معرض بغداد الدولي للكتاب بمشاركة 340 دار نشر محلية وعربية على مدار 10 أيام، وفق بيان اللجنة المنظمة الصادر في 27 سبتمبر 2026.',
+                facebook: 'بمشاركة 340 دار نشر محلية وعربية.. انطلاق الدورة الجديدة لمعرض بغداد الدولي للكتاب على مدار 10 أيام.',
+                urgent: 'مشاركة 340 دار نشر في الدورة الجديدة لمعرض بغداد الدولي للكتاب'
+              },
+              checks: {
+                factsVerified: true,
+                attributionVerified: true
+              },
+              updatedAt: 'أمس 18:20'
+            }
+          ]
+        };
+      }
+
+      /* ----------------------------------------------------------------------
+         2. STATE LOAD & PERSISTENCE (Real Session Storage Persistence)
+         ---------------------------------------------------------------------- */
+      let state = loadState();
+
+      function loadState() {
+        try {
+          const raw = window.sessionStorage.getItem(STORAGE_KEY);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            if (parsed && Array.isArray(parsed.stories) && parsed.stories.length > 0) {
+              return parsed;
+            }
+          }
+        } catch (err) {
+          // Fallback to in-memory state if sessionStorage is restricted
+        }
+        return createInitialState();
+      }
+
+      function persistState(customMessage) {
+        const now = new Date();
+        const timeStr = now.toTimeString().slice(0, 8);
+        state.lastSavedAt = timeStr;
+        let persistedToSession = false;
+        try {
+          window.sessionStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+          persistedToSession = true;
+        } catch (err) {
+          persistedToSession = false;
+        }
+
+        const saveIndicator = document.getElementById('top-save-indicator');
+        const saveText = document.getElementById('top-save-text');
+        if (saveIndicator && saveText) {
+          saveIndicator.dataset.saving = persistedToSession ? 'ok' : 'memory';
+          saveText.textContent = customMessage
+            ? `${customMessage} (${timeStr})`
+            : persistedToSession
+              ? `محفوظ في الجلسة • ${timeStr}`
+              : `محفوظ في الذاكرة • ${timeStr}`;
+        }
+      }
+
+      function getActiveStory() {
+        return state.stories.find(s => s.id === state.activeStoryId) || state.stories[0];
+      }
+
+      /* ----------------------------------------------------------------------
+         3. RENDER FUNCTIONS (Synchronizing DOM with Unified State)
+         ---------------------------------------------------------------------- */
+      function renderAll() {
+        renderNavigationAndHeader();
+        renderNewStoryView();
+        renderReviewView();
+        renderArchiveView();
+        renderSettingsView();
+      }
+
+      function renderNavigationAndHeader() {
+        const story = getActiveStory();
+
+        // Sidebar station name
+        const stationEl = document.getElementById('sidebar-station-name');
+        if (stationEl) {
+          stationEl.textContent = state.settings.stationName.split('—')[0].trim() || 'NAS Newsroom';
+        }
+
+        // Archive count badge
+        const archiveCountEl = document.getElementById('nav-archive-count');
+        if (archiveCountEl) {
+          archiveCountEl.textContent = String(state.stories.length);
+        }
+
+        // Active view visibility
+        document.querySelectorAll('.view-section').forEach(sec => {
+          sec.classList.toggle('active', sec.dataset.view === state.currentView);
+        });
+
+        // Sidebar active button
+        document.querySelectorAll('.nav-btn[data-nav]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.nav === state.currentView);
+        });
+
+        // Page title
+        const titles = {
+          new: 'خبر جديد (إدخال المادة وتوثيق المصدر)',
+          review: 'المراجعة والتحرير',
+          archive: 'الأرشيف التحريري',
+          settings: 'إعدادات المنصة',
+          login: 'تسجيل الدخول'
+        };
+        const titleEl = document.getElementById('top-page-title');
+        if (titleEl) {
+          titleEl.textContent = titles[state.currentView] || 'NAS Newsroom';
+        }
+
+        // Active story headline & status in top bar
+        const headlineEl = document.getElementById('top-story-headline');
+        if (headlineEl && story) {
+          headlineEl.textContent = story.headline || 'مسودة خبر بدون عنوان بعد';
+        }
+
+        const statusBadge = document.getElementById('top-story-status');
+        if (statusBadge && story) {
+          statusBadge.textContent = story.status;
+          statusBadge.dataset.status = story.status;
+        }
+
+        // Scenario buttons highlight
+        document.querySelectorAll('[data-load-scenario]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.loadScenario === state.currentScenario);
+        });
+      }
+
+      function renderNewStoryView() {
+        const story = getActiveStory();
+        if (!story) return;
+
+        const urlInput = document.getElementById('input-source-url');
+        const nameInput = document.getElementById('input-source-name');
+        const dateInput = document.getElementById('input-publish-date');
+        const catSelect = document.getElementById('input-category');
+        const langSelect = document.getElementById('input-source-lang');
+        const textInput = document.getElementById('input-source-text');
+
+        if (document.activeElement !== urlInput) urlInput.value = story.sourceUrl || '';
+        if (document.activeElement !== nameInput) nameInput.value = story.sourceName || '';
+        if (document.activeElement !== dateInput) dateInput.value = story.publishDate || '';
+        if (document.activeElement !== catSelect) catSelect.value = story.category || 'محلي';
+        if (document.activeElement !== langSelect) langSelect.value = story.sourceLang || 'العربية';
+        if (document.activeElement !== textInput) textInput.value = story.sourceText || '';
+
+        // Import status banner
+        const banner = document.getElementById('import-status-banner');
+        const bannerText = document.getElementById('import-status-text');
+        const pasteBtn = document.getElementById('btn-paste-demo-text');
+
+        if (story.importFailed) {
+          banner.className = 'alert-box alert-warn';
+          bannerText.textContent = story.importMessage;
+          pasteBtn.hidden = !story.demoPasteText || story.sourceText.trim().length >= 50;
+        } else {
+          banner.className = 'alert-box alert-info';
+          bannerText.textContent = story.importMessage || 'الرابط جاهز للقراءة. تبقى بيانات المصدر محفوظة طوال الرحلة.';
+          pasteBtn.hidden = true;
+        }
+
+        updateNewStorySufficiency();
+      }
+
+      function updateNewStorySufficiency() {
+        const story = getActiveStory();
+        if (!story) return;
+
+        const textLen = (story.sourceText || '').trim().length;
+        const hasSource = (story.sourceName || '').trim().length > 0;
+        const isSufficient = textLen >= 50 && hasSource;
+
+        const counterEl = document.getElementById('source-char-counter');
+        const badgeEl = document.getElementById('source-sufficiency-badge');
+        const extractBtn = document.getElementById('btn-extract-facts');
+        const guardNote = document.getElementById('extract-guard-note');
+
+        if (counterEl) {
+          counterEl.textContent = `${textLen} حرفاً مدخلاً (الحد الأدنى للاستخراج: 50 حرفاً مع اسم المصدر)`;
+        }
+
+        if (badgeEl) {
+          if (isSufficient) {
+            badgeEl.textContent = 'مادة كافية للاستخراج';
+            badgeEl.className = 'sufficiency-badge ready';
+          } else {
+            badgeEl.textContent = 'مادة غير كافية — التوليد متوقف';
+            badgeEl.className = 'sufficiency-badge short';
+          }
+        }
+
+        if (extractBtn) {
+          extractBtn.disabled = !isSufficient;
+        }
+
+        if (guardNote) {
+          guardNote.textContent = isSufficient
+            ? 'المادة جاهزة لاستخراج الحقائق وبناء الصيغ التحريرية.'
+            : 'التوليد متوقف: يجب توفير نص المصدر (50 حرفاً فأكثر) واسم المصدر أولاً.';
+        }
+      }
+
+      function renderReviewView() {
+        const story = getActiveStory();
+        if (!story) return;
+
+        // 1. Workflow Step Pills
+        const stepOrder = ['source', 'facts', 'draft', 'approval'];
+        const activeIdx = stepOrder.indexOf(state.activeStep);
+        document.querySelectorAll('.step-pill[data-step]').forEach(btn => {
+          const stepIdx = stepOrder.indexOf(btn.dataset.step);
+          btn.classList.toggle('active', btn.dataset.step === state.activeStep);
+          btn.classList.toggle('done', stepIdx < activeIdx);
+        });
+
+        // Highlight focused card
+        const cardMap = {
+          source: 'card-source',
+          facts: 'card-facts',
+          draft: 'card-draft',
+          approval: 'card-approval'
+        };
+        ['card-source', 'card-facts', 'card-draft', 'card-approval'].forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.classList.toggle('card-focused', cardMap[state.activeStep] === id);
+        });
+
+        // Mobile pane toggle state
+        const splitGrid = document.getElementById('review-split-grid');
+        if (splitGrid) {
+          splitGrid.dataset.mobilePane = state.mobilePane;
+        }
+        document.querySelectorAll('[data-mobile-switch]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.mobileSwitch === state.mobilePane);
+        });
+
+        // 2. Source Card Content
+        document.getElementById('review-source-name').textContent = story.sourceName || 'غير محدد';
+        document.getElementById('review-source-date').textContent = `${story.publishDate || 'بدون تاريخ'} • ${story.category || 'عام'} (${story.sourceLang})`;
+        document.getElementById('review-source-url').textContent = story.sourceUrl || 'إدخال يدوي بدون رابط';
+
+        const sourceBody = document.getElementById('review-source-body');
+        sourceBody.dir = story.sourceLang === 'الإنجليزية' ? 'ltr' : 'rtl';
+        sourceBody.innerHTML = '';
+        const paragraphs = (story.sourceText || '').split(/\n+/).filter(Boolean);
+        if (paragraphs.length === 0) {
+          const emptyP = document.createElement('p');
+          emptyP.style.color = 'var(--warn-text)';
+          emptyP.textContent = 'لم يتم إدخال نص المصدر الأصلي بعد. انتقل إلى شاشة «خبر جديد» لإدخال النص الأصلي قبل التحرير.';
+          sourceBody.appendChild(emptyP);
+        } else {
+          paragraphs.forEach(pText => {
+            const p = document.createElement('p');
+            p.textContent = pText;
+            sourceBody.appendChild(p);
+          });
+        }
+
+        // 3. Extracted Facts Card & Blocker
+        const blockerBox = document.getElementById('editorial-blocker-box');
+        const blockerText = document.getElementById('editorial-blocker-text');
+        if (story.hasBlocker) {
+          blockerBox.hidden = false;
+          blockerText.textContent = story.blockerReason;
+        } else {
+          blockerBox.hidden = true;
+        }
+
+        const factsContainer = document.getElementById('facts-list-container');
+        factsContainer.innerHTML = '';
+        (story.facts || []).forEach(fact => {
+          const row = document.createElement('div');
+          row.className = 'fact-row' +
+            (fact.type === 'missing' ? ' is-missing' : '') +
+            (fact.type === 'review-req' ? ' is-blocker' : '');
+
+          const topDiv = document.createElement('div');
+          topDiv.className = 'fact-row-top';
+
+          const labelEl = document.createElement('div');
+          labelEl.className = 'fact-label';
+          labelEl.textContent = fact.label;
+
+          const badgeEl = document.createElement('span');
+          badgeEl.className = `fact-badge ${fact.type}`;
+          badgeEl.textContent = fact.status;
+
+          topDiv.appendChild(labelEl);
+          topDiv.appendChild(badgeEl);
+
+          const valEl = document.createElement('div');
+          valEl.className = 'fact-value';
+          valEl.textContent = fact.value;
+
+          if (fact.type === 'missing') {
+            row.appendChild(labelEl);
+            row.appendChild(valEl);
+            row.appendChild(badgeEl);
+          } else {
+            row.appendChild(topDiv);
+            row.appendChild(valEl);
+          }
+          factsContainer.appendChild(row);
+        });
+
+        const summaryBadge = document.getElementById('facts-summary-badge');
+        if (summaryBadge) {
+          if (story.hasBlocker) {
+            summaryBadge.className = 'fact-badge review-req';
+            summaryBadge.textContent = 'يوجد مانع تحريري (إسناد غير محسوم)';
+          } else {
+            summaryBadge.className = 'fact-badge sourced';
+            summaryBadge.textContent = 'الإسناد مطابق للمصدر';
+          }
+        }
+
+        // 4. Drafting & Formats Card
+        const headlineInput = document.getElementById('editor-headline-input');
+        if (document.activeElement !== headlineInput) {
+          headlineInput.value = story.headline || '';
+        }
+        document.getElementById('headline-char-count').textContent = `${(story.headline || '').length} حرفاً`;
+
+        document.querySelectorAll('.format-tab[data-format]').forEach(tab => {
+          const isCurrent = tab.dataset.format === state.activeFormat;
+          tab.classList.toggle('active', isCurrent);
+          tab.setAttribute('aria-selected', isCurrent ? 'true' : 'false');
+        });
+
+        const urgentOptinBox = document.getElementById('urgent-optin-box');
+        const formatTextarea = document.getElementById('editor-format-textarea');
+        const formatLabels = {
+          radio: 'الصيغة الحالية: النص الإذاعي المعد للقراءة المباشرة على الهواء.',
+          web: 'الصيغة الحالية: خبر مختصر للموقع الإلكتروني.',
+          facebook: 'الصيغة الحالية: منشور فيسبوك موجز.',
+          urgent: 'الصيغة الحالية: شريط عاجل مختصر (يُفعل عند الحاجة التحريرية فقط).'
+        };
+        document.getElementById('editor-format-hint').textContent = formatLabels[state.activeFormat] || '';
+
+        if (state.activeFormat === 'urgent' && !story.urgentEnabled) {
+          urgentOptinBox.hidden = false;
+          formatTextarea.disabled = true;
+          formatTextarea.value = 'الشريط العاجل غير مفعل لهذا الخبر حالياً. اضغط «توليد وتفعيل الشريط العاجل» أعلاه إذا كان الخبر يستدعي تنبيهاً عاجلاً.';
+        } else {
+          urgentOptinBox.hidden = true;
+          formatTextarea.disabled = false;
+          const currentFormatText = (story.formats && story.formats[state.activeFormat]) || '';
+          if (document.activeElement !== formatTextarea) {
+            formatTextarea.value = currentFormatText;
+          }
+        }
+
+        updateRadioDurationMeter(story);
+
+        // 5. Verification & Approval Controls
+        const chkFacts = document.getElementById('chk-verify-facts');
+        const chkAttr = document.getElementById('chk-verify-attribution');
+        chkFacts.checked = Boolean(story.checks && story.checks.factsVerified);
+        chkAttr.checked = Boolean(story.checks && story.checks.attributionVerified);
+
+        const hasSufficientSource = (story.sourceText || '').trim().length >= 50;
+        const checksComplete = chkFacts.checked && chkAttr.checked;
+        const canApprove = hasSufficientSource && !story.hasBlocker && checksComplete;
+
+        const approveBtn = document.getElementById('btn-approve-story');
+        const readinessBadge = document.getElementById('approval-readiness-badge');
+        const publishBox = document.getElementById('post-approval-publish-box');
+        const publishBtnReview = document.getElementById('btn-mark-published-review');
+        const publishTitle = document.getElementById('post-approval-title');
+
+        approveBtn.disabled = !canApprove || story.status === 'معتمد' || story.status === 'منشور';
+
+        if (story.status === 'منشور') {
+          readinessBadge.className = 'sufficiency-badge ready';
+          readinessBadge.textContent = 'تم الاعتماد والنشر اليدوي';
+          publishBox.hidden = false;
+          publishTitle.textContent = 'حالة الخبر: منشور.';
+          publishBtnReview.disabled = true;
+          publishBtnReview.textContent = 'تم تسجيل النشر';
+        } else if (story.status === 'معتمد') {
+          readinessBadge.className = 'sufficiency-badge ready';
+          readinessBadge.textContent = 'معتمد بشرياً — جاهز للنشر اليدوي';
+          publishBox.hidden = false;
+          publishTitle.textContent = 'الخبر معتمد وجاهز للنشر اليدوي الخارجي.';
+          publishBtnReview.disabled = false;
+          publishBtnReview.textContent = 'تسجيل الحالة كـ «منشور»';
+        } else {
+          publishBox.hidden = true;
+          if (!hasSufficientSource) {
+            readinessBadge.className = 'sufficiency-badge short';
+            readinessBadge.textContent = 'ممنوع الاعتماد: نص المصدر غير كافٍ';
+          } else if (story.hasBlocker) {
+            readinessBadge.className = 'sufficiency-badge short';
+            readinessBadge.textContent = 'ممنوع الاعتماد: يوجد مانع تحريري معلق';
+          } else if (!checksComplete) {
+            readinessBadge.className = 'sufficiency-badge short';
+            readinessBadge.textContent = 'بانتظار إقرار المراجعة البشرية (مربعي التحقق)';
+          } else {
+            readinessBadge.className = 'sufficiency-badge ready';
+            readinessBadge.textContent = 'مستوفي الشروط — جاهز للاعتماد البشري';
+          }
+        }
+      }
+
+      function updateRadioDurationMeter(story) {
+        const meter = document.getElementById('radio-duration-meter');
+        if (!meter || !story) return;
+
+        const radioText = (story.formats && story.formats.radio) || '';
+        const words = radioText.trim().split(/\s+/).filter(Boolean).length;
+        const estSeconds = Math.max(0, Math.round(words / 2.2));
+
+        const [minTarget, maxTarget] = (state.settings.radioLength || '20-40').split('-').map(Number);
+        const isOptimal = estSeconds >= minTarget && estSeconds <= maxTarget;
+
+        meter.dataset.fit = isOptimal ? 'optimal' : 'warn';
+        meter.textContent = `النص الإذاعي: ${words} كلمة • ~${estSeconds} ثانية على الهواء (الهدف: ${minTarget}–${maxTarget} ث)`;
+      }
+
+      function renderArchiveView() {
+        const listContainer = document.getElementById('archive-list-container');
+        if (!listContainer) return;
+
+        // Filter pills active state
+        document.querySelectorAll('#archive-filter-pills [data-filter-status]').forEach(btn => {
+          btn.classList.toggle('active', btn.dataset.filterStatus === state.archiveFilter);
+        });
+
+        const query = (state.archiveSearch || '').trim().toLowerCase();
+        const filtered = state.stories.filter(item => {
+          const matchesStatus = state.archiveFilter === 'all' || item.status === state.archiveFilter;
+          const matchesQuery = !query ||
+            (item.headline || '').toLowerCase().includes(query) ||
+            (item.sourceName || '').toLowerCase().includes(query) ||
+            (item.category || '').toLowerCase().includes(query);
+          return matchesStatus && matchesQuery;
+        });
+
+        listContainer.innerHTML = '';
+
+        if (filtered.length === 0) {
+          const emptyCard = document.createElement('div');
+          emptyCard.className = 'ed-card';
+          emptyCard.style.textAlign = 'center';
+          emptyCard.style.color = 'var(--text-muted)';
+          emptyCard.textContent = 'لا توجد أخبار مطابقة لمعايير البحث أو التصفية الحالية.';
+          listContainer.appendChild(emptyCard);
+          return;
+        }
+
+        filtered.forEach(item => {
+          const card = document.createElement('article');
+          card.className = 'archive-card' + (item.id === state.activeStoryId ? ' is-current' : '');
+
+          const mainDiv = document.createElement('div');
+          mainDiv.className = 'archive-card-main';
+
+          const topRow = document.createElement('div');
+          topRow.className = 'archive-card-top';
+
+          const badge = document.createElement('span');
+          badge.className = 'story-status-badge';
+          badge.dataset.status = item.status;
+          badge.textContent = item.status;
+
+          const title = document.createElement('h3');
+          title.className = 'archive-title';
+          title.textContent = item.headline || 'مسودة خبر بدون عنوان';
+
+          topRow.appendChild(badge);
+          topRow.appendChild(title);
+
+          if (item.hasBlocker) {
+            const blockerTag = document.createElement('span');
+            blockerTag.className = 'fact-badge review-req';
+            blockerTag.textContent = 'مانع تحريري معلق';
+            topRow.appendChild(blockerTag);
+          }
+
+          const metaRow = document.createElement('div');
+          metaRow.className = 'archive-meta';
+          metaRow.innerHTML =
+            `<span><strong>المصدر:</strong> ${escapeHtml(item.sourceName || 'غير محدد')}</span>` +
+            `<span><strong>التصنيف:</strong> ${escapeHtml(item.category || 'عام')}</span>` +
+            `<span><strong>تاريخ النشر:</strong> ${escapeHtml(item.publishDate || '—')}</span>` +
+            `<span><strong>آخر تعديل:</strong> ${escapeHtml(item.updatedAt || 'الآن')}</span>`;
+
+          mainDiv.appendChild(topRow);
+          mainDiv.appendChild(metaRow);
+
+          const actionsDiv = document.createElement('div');
+          actionsDiv.className = 'archive-actions';
+
+          if (item.status === 'معتمد') {
+            const pubBtn = document.createElement('button');
+            pubBtn.type = 'button';
+            pubBtn.className = 'btn btn-sm';
+            pubBtn.textContent = 'تسجيل كمنشور';
+            pubBtn.addEventListener('click', () => {
+              item.status = 'منشور';
+              item.updatedAt = 'الآن (سُجل كمنشور)';
+              persistState('تم تسجيل حالة النشر');
+              renderAll();
+            });
+            actionsDiv.appendChild(pubBtn);
+          }
+
+          const openBtn = document.createElement('button');
+          openBtn.type = 'button';
+          openBtn.className = 'btn btn-primary btn-sm';
+          openBtn.textContent = item.status === 'مسودة' && (item.sourceText || '').trim().length < 50
+            ? 'استكمال إدخال المصدر'
+            : 'فتح للمراجعة والتحرير';
+          openBtn.addEventListener('click', () => {
+            state.activeStoryId = item.id;
+            state.currentScenario = item.scenarioCode || 'custom';
+            if ((item.sourceText || '').trim().length < 50) {
+              state.currentView = 'new';
+            } else {
+              state.currentView = 'review';
+            }
+            persistState('تم فتح الخبر');
+            renderAll();
+          });
+
+          actionsDiv.appendChild(openBtn);
+
+          card.appendChild(mainDiv);
+          card.appendChild(actionsDiv);
+          listContainer.appendChild(card);
+        });
+      }
+
+      function renderSettingsView() {
+        const s = state.settings;
+        const stInput = document.getElementById('setting-station-name');
+        const styleSelect = document.getElementById('setting-editorial-style');
+        const lenSelect = document.getElementById('setting-radio-length');
+        const modSelect = document.getElementById('setting-model-provider');
+
+        if (document.activeElement !== stInput) stInput.value = s.stationName;
+        if (document.activeElement !== styleSelect) styleSelect.value = s.editorialStyle;
+        if (document.activeElement !== lenSelect) lenSelect.value = s.radioLength;
+        if (document.activeElement !== modSelect) modSelect.value = s.modelProvider;
+      }
+
+      function escapeHtml(str) {
+        return String(str)
+          .replace(/&/g, '&amp;')
+          .replace(/</g, '&lt;')
+          .replace(/>/g, '&gt;')
+          .replace(/"/g, '&quot;');
+      }
+
+      /* ----------------------------------------------------------------------
+         4. EVENT LISTENERS & INTERACTIVE WORKFLOWS
+         ---------------------------------------------------------------------- */
+      // Sidebar Navigation
+      document.querySelectorAll('.nav-btn[data-nav]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          state.currentView = btn.dataset.nav;
+          persistState();
+          renderAll();
+        });
+      });
+
+      // Scenario Switcher (SC-01, SC-02, SC-03)
+      document.querySelectorAll('[data-load-scenario]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const code = btn.dataset.loadScenario;
+          state.currentScenario = code;
+          const targetStory = state.stories.find(s => s.scenarioCode === code);
+          if (targetStory) {
+            state.activeStoryId = targetStory.id;
+            // If SC-02 has no text yet, show 'new' screen so editor experiences the import failure & manual paste flow
+            if (code === 'sc02' && targetStory.sourceText.trim().length < 50) {
+              state.currentView = 'new';
+            } else {
+              state.currentView = 'review';
+              state.activeStep = 'facts';
+            }
+          }
+          persistState(`تم تحميل سيناريو ${code.toUpperCase()}`);
+          renderAll();
+        });
+      });
+
+      // Reset Demo State
+      document.getElementById('btn-reset-demo').addEventListener('click', () => {
+        window.sessionStorage.removeItem(STORAGE_KEY);
+        state = createInitialState();
+        persistState('تمت إعادة ضبط البيانات التجريبية');
+        renderAll();
+      });
+
+      // --- NEW STORY SCREEN EVENTS ---
+      function bindNewStoryInputs() {
+        const urlInput = document.getElementById('input-source-url');
+        const nameInput = document.getElementById('input-source-name');
+        const dateInput = document.getElementById('input-publish-date');
+        const catSelect = document.getElementById('input-category');
+        const langSelect = document.getElementById('input-source-lang');
+        const textInput = document.getElementById('input-source-text');
+
+        const syncNewInputs = () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.sourceUrl = urlInput.value;
+          story.sourceName = nameInput.value;
+          story.publishDate = dateInput.value;
+          story.category = catSelect.value;
+          story.sourceLang = langSelect.value;
+          story.sourceText = textInput.value;
+          story.updatedAt = 'الآن';
+          updateNewStorySufficiency();
+          persistState();
+        };
+
+        [urlInput, nameInput, dateInput, catSelect, langSelect, textInput].forEach(el => {
+          el.addEventListener('input', syncNewInputs);
+          el.addEventListener('change', syncNewInputs);
+        });
+
+        // Simulate URL Fetch
+        document.getElementById('btn-fetch-url').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          const urlVal = urlInput.value.trim();
+          if (!urlVal) {
+            story.importFailed = true;
+            story.importMessage = 'يرجى إدخال رابط المصدر أولاً أو لصق النص الأصلي يدوياً أدناه.';
+          } else if (story.scenarioCode === 'sc02' || urlVal.includes('diwaniyah') || urlVal.includes('facebook.com')) {
+            story.importFailed = true;
+            story.importMessage = 'تعذّر قراءة الرابط آلياً (الموقع المصدر يمنع الجلب المباشر أو يتطلب تسجيل دخول). بقي الرابط محفوظاً — يرجى لصق النص الأصلي يدوياً.';
+          } else {
+            story.importFailed = false;
+            story.importMessage = 'تمت قراءة بيانات الرابط التجريبية بنجاح. تحقق من النص الأصلي أدناه قبل الاستخراج.';
+          }
+          persistState('تم فحص الرابط');
+          renderAll();
+        });
+
+        // Paste Demo Text for SC-02
+        document.getElementById('btn-paste-demo-text').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.sourceText = story.demoPasteText ||
+            'حذرت منظمة اليونيسف في تقرير ميداني صدر يوم 1 أكتوبر 2026 من تفاقم شح مياه الشرب في 18 قرية شرقي محافظة الديوانية يقطنها 24 ألف نسمة بينهم 9,200 طفل، مع تركيب 6 محطات تحلية بالتنسيق مع مديرية ماء الديوانية.';
+          story.importMessage = 'تم لصق النص الأصلي يدوياً مع الاحتفاظ برابط المصدر الموثق. المادة جاهزة الآن لاستخراج الحقائق.';
+          story.importFailed = false;
+          persistState('تم لصق النص اليدوي');
+          renderAll();
+        });
+
+        // Clear form for a brand new custom draft
+        document.getElementById('btn-clear-new-form').addEventListener('click', () => {
+          const newId = 'story-custom-' + Date.now();
+          const newStory = {
+            id: newId,
+            scenarioCode: 'custom',
+            status: 'مسودة',
+            sourceUrl: 'https://',
+            sourceName: '',
+            publishDate: '2026-10-11',
+            category: 'محلي',
+            sourceLang: 'العربية',
+            importFailed: false,
+            importMessage: 'أدخل رابط المصدر واسم الجهة والنص الأصلي للبدء.',
+            sourceText: '',
+            hasBlocker: false,
+            blockerReason: '',
+            facts: [
+              { label: 'الجهة الفاعلة', value: 'تُستخرج بعد إدخال نص المصدر', status: 'وارد في المصدر', type: 'sourced' },
+              { label: 'التاريخ والمكان', value: '2026-10-11', status: 'وارد في المصدر', type: 'sourced' },
+              { label: 'النواقص', value: 'يتم فحص النواقص تلقائياً عند الاستخراج', status: 'غير مذكور في المصدر', type: 'missing' }
+            ],
+            headline: '',
+            urgentEnabled: false,
+            formats: { radio: '', web: '', facebook: '', urgent: '' },
+            checks: { factsVerified: false, attributionVerified: false },
+            updatedAt: 'الآن'
+          };
+          state.stories.unshift(newStory);
+          state.activeStoryId = newId;
+          state.currentScenario = 'custom';
+          persistState('تم فتح مسودة جديدة');
+          renderAll();
+        });
+
+        // Save Draft on New Story screen
+        document.getElementById('btn-new-save-draft').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (story) {
+            story.updatedAt = 'الآن (مسودة محفوظة)';
+          }
+          persistState('تم حفظ المسودة في الجلسة');
+          renderAll();
+        });
+
+        // Extract Facts & Proceed to Review
+        document.getElementById('btn-extract-facts').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          if ((story.sourceText || '').trim().length < 50 || !(story.sourceName || '').trim()) {
+            return;
+          }
+
+          // If custom story has empty headline/formats, populate from source text
+          if (!story.headline) {
+            const firstSentence = story.sourceText.trim().split(/[.،\n]/)[0].slice(0, 85);
+            story.headline = firstSentence || `خبر من ${story.sourceName}`;
+          }
+          if (!story.formats.radio) {
+            story.formats.radio = story.sourceText.trim();
+            story.formats.web = story.sourceText.trim();
+            story.formats.facebook = story.headline;
+            story.formats.urgent = story.headline;
+            story.facts = [
+              { label: 'الجهة والمصدر', value: story.sourceName, status: 'وارد في المصدر', type: 'sourced' },
+              { label: 'التاريخ والتصنيف', value: `${story.publishDate} • ${story.category}`, status: 'وارد في المصدر', type: 'sourced' },
+              { label: 'مقتطف الوقائع', value: story.sourceText.trim().slice(0, 140) + '...', status: 'وارد في المصدر', type: 'sourced' },
+              { label: 'النواقص', value: 'أية تفاصيل إضافية غير واردة في النص الأصلي أعلاه', status: 'غير مذكور في المصدر', type: 'missing' }
+            ];
+          }
+
+          story.status = 'قيد المراجعة';
+          story.updatedAt = 'الآن (قيد المراجعة)';
+          state.currentView = 'review';
+          state.activeStep = 'facts';
+          state.mobilePane = 'editor';
+          persistState('تم استخراج الحقائق والانتقال للمراجعة');
+          renderAll();
+        });
+      }
+
+      // --- REVIEW & EDIT SCREEN EVENTS ---
+      function bindReviewEvents() {
+        // Workflow Step Bar Clicks (Focuses section without changing Story Status!)
+        document.querySelectorAll('.step-pill[data-step]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            const step = btn.dataset.step;
+            state.activeStep = step;
+            if (step === 'source') {
+              state.mobilePane = 'source';
+            } else {
+              state.mobilePane = 'editor';
+            }
+            persistState();
+            renderAll();
+
+            const targetId = {
+              source: 'card-source',
+              facts: 'card-facts',
+              draft: 'card-draft',
+              approval: 'card-approval'
+            }[step];
+            const targetEl = document.getElementById(targetId);
+            if (targetEl && typeof targetEl.scrollIntoView === 'function') {
+              targetEl.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+            }
+          });
+        });
+
+        // Mobile Workspace Switcher (Editor vs Source)
+        document.querySelectorAll('[data-mobile-switch]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.mobilePane = btn.dataset.mobileSwitch;
+            persistState();
+            renderAll();
+          });
+        });
+
+        // Return to edit source metadata
+        document.getElementById('btn-edit-source-return').addEventListener('click', () => {
+          state.currentView = 'new';
+          state.activeStep = 'source';
+          persistState();
+          renderAll();
+        });
+
+        // Resolve Editorial Blocker (SC-03)
+        document.getElementById('btn-resolve-blocker').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.hasBlocker = false;
+          story.blockerReason = '';
+          story.facts = story.facts.map(f => {
+            if (f.type === 'review-req') {
+              return {
+                label: 'التصريحات المعتمدة',
+                value: 'بيان اليونيسف الرسمي: «حماية جودة مياه الأنهار أولوية صحية عاجلة للعائلات والمدارس قبل فصل الشتاء» (تم استبعاد ادعاء إغلاق المصانع لعدم وجود مصدر رسمي)',
+                status: 'وارد ومنسوب للبيان الرسمي',
+                type: 'sourced'
+              };
+            }
+            return f;
+          });
+          story.updatedAt = 'الآن (تم حسم الإسناد)';
+          persistState('تمت معالجة المانع التحريري وتثبيت الإسناد');
+          renderAll();
+        });
+
+        // Headline Input Live Sync
+        const headlineInput = document.getElementById('editor-headline-input');
+        headlineInput.addEventListener('input', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.headline = headlineInput.value;
+          story.updatedAt = 'الآن';
+          state.activeStep = 'draft';
+          document.getElementById('headline-char-count').textContent = `${story.headline.length} حرفاً`;
+          document.getElementById('top-story-headline').textContent = story.headline || 'مسودة خبر بدون عنوان بعد';
+          persistState();
+        });
+
+        // Format Tabs Switching (Radio, Web, Facebook, Urgent)
+        document.querySelectorAll('.format-tab[data-format]').forEach(tab => {
+          tab.addEventListener('click', () => {
+            state.activeFormat = tab.dataset.format;
+            state.activeStep = 'draft';
+            persistState();
+            renderAll();
+          });
+        });
+
+        // Enable Urgent Ticker when needed
+        document.getElementById('btn-enable-urgent').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.urgentEnabled = true;
+          if (!story.formats.urgent) {
+            story.formats.urgent = story.headline || 'عاجل: خبر جديد';
+          }
+          persistState('تم تفعيل الشريط العاجل');
+          renderAll();
+        });
+
+        // Format Textarea Live Sync
+        const formatTextarea = document.getElementById('editor-format-textarea');
+        formatTextarea.addEventListener('input', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          if (state.activeFormat === 'urgent' && !story.urgentEnabled) return;
+
+          story.formats[state.activeFormat] = formatTextarea.value;
+          story.updatedAt = 'الآن';
+          state.activeStep = 'draft';
+          updateRadioDurationMeter(story);
+          persistState();
+        });
+
+        // Copy Current Format Button
+        const copyBtn = document.getElementById('btn-copy-current-format');
+        copyBtn.addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          const textToCopy = story.formats[state.activeFormat] || '';
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(textToCopy).catch(() => {});
+          }
+          const orig = copyBtn.textContent;
+          copyBtn.textContent = 'تم نسخ النص إلى الحافظة ✓';
+          setTimeout(() => {
+            copyBtn.textContent = orig;
+          }, 1500);
+        });
+
+        // Verification Checkboxes
+        const chkFacts = document.getElementById('chk-verify-facts');
+        const chkAttr = document.getElementById('chk-verify-attribution');
+
+        const onCheckChange = () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.checks.factsVerified = chkFacts.checked;
+          story.checks.attributionVerified = chkAttr.checked;
+          state.activeStep = 'approval';
+          // Changing checkboxes or moving to approval review NEVER auto-approves the story!
+          if (story.status === 'مسودة') {
+            story.status = 'قيد المراجعة';
+          }
+          persistState();
+          renderAll();
+        };
+
+        chkFacts.addEventListener('change', onCheckChange);
+        chkAttr.addEventListener('change', onCheckChange);
+
+        // Focus Approval Step Button
+        document.getElementById('btn-focus-approval-step').addEventListener('click', () => {
+          state.activeStep = 'approval';
+          persistState('في خطوة مراجعة الاعتماد');
+          renderAll();
+          const cardApproval = document.getElementById('card-approval');
+          if (cardApproval && typeof cardApproval.scrollIntoView === 'function') {
+            cardApproval.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+          }
+        });
+
+        // Save Draft Button in Review
+        document.getElementById('btn-review-save-draft').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (story) {
+            story.updatedAt = 'الآن (محفوظ)';
+          }
+          persistState('تم حفظ التعديلات في الجلسة');
+          renderAll();
+        });
+
+        // Approve Story Button (Enforced in logic, not just UI)
+        document.getElementById('btn-approve-story').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+
+          const hasSufficientSource = (story.sourceText || '').trim().length >= 50;
+          const checksComplete = Boolean(story.checks.factsVerified && story.checks.attributionVerified);
+          if (!hasSufficientSource || story.hasBlocker || !checksComplete) {
+            return;
+          }
+
+          story.status = 'معتمد';
+          story.updatedAt = 'الآن (معتمد بشرياً)';
+          state.activeStep = 'approval';
+          persistState('تم اعتماد الخبر بنجاح');
+          renderAll();
+        });
+
+        // Mark as Published (Separated from Approval)
+        document.getElementById('btn-mark-published-review').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story || story.status !== 'معتمد') return;
+          story.status = 'منشور';
+          story.updatedAt = 'الآن (منشور يدوياً)';
+          persistState('تم تسجيل الخبر كمنشور');
+          renderAll();
+        });
+
+        // Exclude Story (Secondary Action without deleting source/history)
+        document.getElementById('btn-exclude-story').addEventListener('click', () => {
+          const story = getActiveStory();
+          if (!story) return;
+          story.status = 'مستبعد';
+          story.updatedAt = 'الآن (مستبعد مع حفظ السجل)';
+          persistState('تم وضع الخبر في حالة مستبعد');
+          renderAll();
+        });
+      }
+
+      // --- ARCHIVE SCREEN EVENTS ---
+      function bindArchiveEvents() {
+        const searchInput = document.getElementById('archive-search-input');
+        searchInput.addEventListener('input', () => {
+          state.archiveSearch = searchInput.value;
+          renderArchiveView();
+        });
+
+        document.querySelectorAll('#archive-filter-pills [data-filter-status]').forEach(btn => {
+          btn.addEventListener('click', () => {
+            state.archiveFilter = btn.dataset.filterStatus;
+            renderArchiveView();
+          });
+        });
+
+        document.getElementById('btn-archive-new-story').addEventListener('click', () => {
+          state.currentView = 'new';
+          persistState();
+          renderAll();
+        });
+      }
+
+      // --- SETTINGS SCREEN EVENTS ---
+      function bindSettingsEvents() {
+        const stInput = document.getElementById('setting-station-name');
+        const styleSelect = document.getElementById('setting-editorial-style');
+        const lenSelect = document.getElementById('setting-radio-length');
+        const modSelect = document.getElementById('setting-model-provider');
+        const noticeBox = document.getElementById('settings-sim-notice');
+
+        document.getElementById('btn-save-settings').addEventListener('click', () => {
+          state.settings.stationName = stInput.value.trim() || 'NAS FM — إذاعة ناس';
+          state.settings.editorialStyle = styleSelect.value;
+          state.settings.radioLength = lenSelect.value;
+          state.settings.modelProvider = modSelect.value;
+
+          noticeBox.className = 'alert-box alert-success';
+          noticeBox.innerHTML =
+            `<div><strong>تم حفظ إعدادات القالب في جلسة البروتوتايب:</strong> ` +
+            `<span>طول النص الإذاعي المستهدف (${state.settings.radioLength} ثانية) والأسلوب (${state.settings.editorialStyle}) مطبقان الآن في مساحة المراجعة.</span></div>`;
+          persistState('تم حفظ الإعدادات');
+          renderAll();
+        });
+
+        document.getElementById('btn-simulate-model-check').addEventListener('click', () => {
+          noticeBox.className = 'alert-box alert-info';
+          noticeBox.innerHTML =
+            `<div><strong>نتيجة الفحص التجريبي (محاكاة واجهة فقط):</strong> ` +
+            `<span>تم التحقق من إعدادات القالب لاختيار «${escapeHtml(modSelect.value)}». تنبيه صريح: لم يتم إجراء اتصال شبكي حقيقي بمزود الموديل لأن هذا الملف نموذج HTML مستقل بدون خادم (Backend).</span></div>`;
+        });
+      }
+
+      // --- LOGIN SCREEN EVENTS ---
+      function bindLoginEvents() {
+        const userEl = document.getElementById('login-username');
+        const passEl = document.getElementById('login-password');
+        const errBox = document.getElementById('login-error-box');
+        const errText = document.getElementById('login-error-text');
+
+        document.getElementById('btn-submit-login').addEventListener('click', () => {
+          if (!userEl.value.trim() || !passEl.value.trim() || passEl.value.trim().length < 4) {
+            errBox.hidden = false;
+            errText.textContent = 'خطأ في الدخول: يرجى إدخال البريد التحريري وكلمة مرور صالحة (4 أحرف على الأقل).';
+            return;
+          }
+          errBox.hidden = true;
+          state.currentView = 'review';
+          persistState('تم الدخول إلى مساحة العمل');
+          renderAll();
+        });
+
+        document.getElementById('btn-trigger-login-error').addEventListener('click', () => {
+          errBox.hidden = false;
+          errText.textContent = 'رسالة خطأ تجريبية: بيانات الاعتماد المدخلة غير مطابقة للمحرر المناوب.';
+        });
+
+        document.getElementById('btn-sidebar-logout').addEventListener('click', () => {
+          state.currentView = 'login';
+          persistState('انتقلت إلى شاشة الدخول');
+          renderAll();
+        });
+      }
+
+      /* ----------------------------------------------------------------------
+         5. INITIALIZATION
+         ---------------------------------------------------------------------- */
+      bindNewStoryInputs();
+      bindReviewEvents();
+      bindArchiveEvents();
+      bindSettingsEvents();
+      bindLoginEvents();
+      renderAll();
+      persistState();
+    })();
+  </script>
+</body>
+</html>

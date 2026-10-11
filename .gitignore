@@ -1,0 +1,37 @@
+# Secrets & Environment Variables (Never commit secrets)
+.env
+.env.*
+*.pem
+*.key
+secrets.*
+
+# Dependencies & Build Outputs
+node_modules/
+dist/
+build/
+.wrangler/
+.cloudflare/
+coverage/
+
+# Logs & Temporary Reports
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+tmp/
+temp/
+
+# OS & Editor Metadata
+.DS_Store
+Thumbs.db
+Desktop.ini
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Local Working Scratch Copies (Preserved locally, excluded from repository baseline)
+/NAS-Newsroom-Redesign.html
+/design-qa.md
+/prototype/NAS-Newsroom-Redesign2.html
