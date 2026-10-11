@@ -1,12 +1,14 @@
+import { getProvidersStatus } from './server/ai/registry';
 import { authenticate, login, logout } from './server/auth';
 import type { Env } from './server/env';
 import { HttpError, errorResponse, json } from './server/http';
-import { getSettings, putSettings } from './server/settings';
+import { getSettings, putSettings, testModelSettings } from './server/settings';
 import {
   STORY_ID_RE,
   approveStory,
   createStory,
   excludeStory,
+  extractStory,
   getStory,
   importStorySource,
   listStories,
@@ -60,12 +62,18 @@ async function route(request: Request, env: Env): Promise<Response> {
     if (method === 'GET') response = await getSettings(env);
     else if (method === 'PUT') response = await putSettings(request, env);
     else methodNotAllowed();
+  } else if (path === '/api/settings/test-model') {
+    if (method !== 'POST') methodNotAllowed();
+    response = await testModelSettings(request, env, auth.user.id);
+  } else if (path === '/api/ai/catalog') {
+    if (method !== 'GET') methodNotAllowed();
+    response = json({ providers: getProvidersStatus(env) });
   } else if (path === '/api/stories') {
     if (method === 'GET') response = await listStories(url, env);
     else if (method === 'POST') response = await createStory(request, env);
     else methodNotAllowed();
   } else {
-    const actionMatch = /^\/api\/stories\/([^/]+)\/(import|start-review|checks|resolve-blocker|approve|publish|exclude)$/.exec(
+    const actionMatch = /^\/api\/stories\/([^/]+)\/(import|extract|start-review|checks|resolve-blocker|approve|publish|exclude)$/.exec(
       path,
     );
     if (actionMatch) {
@@ -75,6 +83,7 @@ async function route(request: Request, env: Env): Promise<Response> {
       if (method !== 'POST') methodNotAllowed();
 
       if (action === 'import') response = await importStorySource(request, env, id);
+      else if (action === 'extract') response = await extractStory(request, env, id);
       else if (action === 'start-review') response = await startStoryReview(env, id);
       else if (action === 'checks') response = await updateStoryChecks(request, env, id);
       else if (action === 'resolve-blocker') response = await resolveStoryBlocker(request, env, id);

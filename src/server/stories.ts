@@ -13,16 +13,22 @@ import {
 import type {
   ArchiveCountsDto,
   FormatKey,
+  StoryAIMetadataDto,
   StoryChecks,
   StoryDto,
+  StoryExtractResponseDto,
   StoryFact,
   StoryFormats,
   StoryPatchBody,
   StorySummaryDto,
 } from '../shared/contracts';
+import { runEditorialPipeline } from './ai/pipeline';
+import type { generateWithRetry } from './ai/registry';
+import { AIProviderException } from './ai/types';
 import type { Env } from './env';
 import { HttpError, json, readJson } from './http';
 import { fetchAndExtractSource } from './importer';
+import { getSettingsRow } from './settings';
 
 interface StoryRow {
   id: string;
@@ -155,9 +161,9 @@ function parseFactsJson(raw: string | null): StoryFact[] {
   }
 }
 
-function toDto(r: StoryRow): StoryDto {
+function toDto(r: StoryRow, aiMetadata?: StoryAIMetadataDto): StoryDto {
   const urgentEnabled = Boolean(r.urgent_enabled);
-  return {
+  const dto: StoryDto = {
     id: r.id,
     status: r.status,
     sourceUrl: r.source_url ?? '',
@@ -185,6 +191,35 @@ function toDto(r: StoryRow): StoryDto {
     approvedAt: r.approved_at ?? null,
     publishedAt: r.published_at ?? null,
   };
+  if (aiMetadata) {
+    dto.aiMetadata = aiMetadata;
+  }
+  return dto;
+}
+
+async function loadStoryAiMetadata(env: Env, storyId: string): Promise<StoryAIMetadataDto | undefined> {
+  try {
+    const ev = await env.DB.prepare(
+      "SELECT detail, created_at FROM story_events WHERE story_id = ? AND event_type = 'extract_succeeded' ORDER BY id DESC LIMIT 1",
+    )
+      .bind(storyId)
+      .first<{ detail: string | null; created_at: string }>();
+    if (!ev || !ev.detail) return undefined;
+    const parsed = JSON.parse(ev.detail) as Record<string, unknown>;
+    return {
+      usage: parsed.usage as StoryAIMetadataDto['usage'],
+      editorialNotes: typeof parsed.editorialNotes === 'string' ? parsed.editorialNotes : undefined,
+      attributionFlags: Array.isArray(parsed.attributionFlags)
+        ? (parsed.attributionFlags as StoryAIMetadataDto['attributionFlags'])
+        : undefined,
+      numberWarnings: Array.isArray(parsed.numberWarnings)
+        ? (parsed.numberWarnings as string[])
+        : undefined,
+      generatedAt: ev.created_at,
+    };
+  } catch {
+    return undefined;
+  }
 }
 
 function bad(field: string): HttpError {
@@ -481,7 +516,8 @@ export async function createStory(request: Request, env: Env): Promise<Response>
 export async function getStory(env: Env, id: string): Promise<Response> {
   const row = await env.DB.prepare(`SELECT ${STORY_COLUMNS} FROM stories WHERE id = ?`).bind(id).first<StoryRow>();
   if (!row) throw new HttpError(404, 'not_found');
-  return json({ story: toDto(row) });
+  const aiMetadata = await loadStoryAiMetadata(env, id);
+  return json({ story: toDto(row, aiMetadata) });
 }
 
 export async function patchStory(request: Request, env: Env, id: string): Promise<Response> {
@@ -902,3 +938,191 @@ export async function excludeStory(request: Request, env: Env, id: string): Prom
 
   return getStory(env, id);
 }
+
+/**
+ * Handles POST /api/stories/:id/extract (Specs §3.3, §7, §8)
+ * Body (optional): { provider?: string, model?: string, overwriteExisting?: boolean }
+ * - Enforces source sufficiency (>= 50 chars, non-empty sourceName) and max 20,000 chars.
+ * - Protects manual edits unless overwriteExisting === true.
+ * - Computes server-side hasBlocker and non-blocking numberWarnings.
+ * - Transitions مسودة -> قيد المراجعة (never auto-approves!) and resets human verification checkboxes.
+ */
+export async function extractStory(
+  request: Request,
+  env: Env,
+  id: string,
+  generateOverride?: typeof generateWithRetry,
+): Promise<Response> {
+  const rawText = await request.text();
+  let body: Record<string, unknown> = {};
+  if (rawText.trim() !== '') {
+    try {
+      const parsed = JSON.parse(rawText);
+      if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+        throw bad('body');
+      }
+      body = parsed as Record<string, unknown>;
+    } catch (err) {
+      if (err instanceof HttpError) throw err;
+      throw bad('body');
+    }
+  }
+
+  // Never allow browser to supply an API key in extract payload
+  if ('apiKey' in body || 'AI_API_KEY' in body || 'api_key' in body) {
+    throw bad('apiKey');
+  }
+
+  let providerOpt: string | undefined;
+  if (body.provider !== undefined) {
+    if (typeof body.provider !== 'string' || body.provider.trim().length > 100) throw bad('provider');
+    if (body.provider.trim()) providerOpt = body.provider.trim();
+  }
+
+  let modelOpt: string | undefined;
+  if (body.model !== undefined) {
+    if (typeof body.model !== 'string' || body.model.trim().length > 100) throw bad('model');
+    if (body.model.trim()) modelOpt = body.model.trim();
+  }
+
+  let overwriteExisting = false;
+  if (body.overwriteExisting !== undefined) {
+    if (typeof body.overwriteExisting !== 'boolean') throw bad('overwriteExisting');
+    overwriteExisting = body.overwriteExisting;
+  }
+
+  const row = await env.DB.prepare(`SELECT ${STORY_COLUMNS} FROM stories WHERE id = ?`).bind(id).first<StoryRow>();
+  if (!row) throw new HttpError(404, 'not_found');
+
+  if (!EDITABLE_STATUSES.includes(row.status as typeof STORY_STATUS_DRAFT)) {
+    throw new HttpError(409, 'invalid_transition');
+  }
+
+  const settingsRow = await getSettingsRow(env);
+  const urgentEnabled = Boolean(row.urgent_enabled);
+  const selectedFormats = parseSelectedFormatsJson(row.selected_formats_json, urgentEnabled);
+  const currentFormats = parseFormatsJson(row.formats_json);
+
+  try {
+    const result = await runEditorialPipeline(
+      env,
+      {
+        story: {
+          id: row.id,
+          sourceText: row.source_text ?? '',
+          sourceName: row.source_name ?? '',
+          sourceLang: row.source_lang ?? 'العربية',
+          category: row.category ?? 'محلي',
+          publishDate: row.publish_date ?? '',
+          urgentEnabled,
+          selectedFormats,
+          currentHeadline: row.headline ?? '',
+          currentFormats,
+        },
+        settings: {
+          stationName: settingsRow.station_name,
+          editorialStyle: settingsRow.editorial_style,
+          radioLength: settingsRow.radio_length,
+          modelProvider: settingsRow.model_provider,
+          modelName: settingsRow.model_name,
+        },
+        requestOptions: {
+          provider: providerOpt,
+          model: modelOpt,
+          overwriteExisting,
+        },
+      },
+      generateOverride ? { generateFn: generateOverride } : undefined,
+    );
+
+    const now = new Date().toISOString();
+    const eventDetail = {
+      usage: result.usage,
+      editorialNotes: result.editorialNotes,
+      attributionFlags: result.attributionFlags,
+      numberWarnings: result.numberWarnings,
+      preservedManualFormats: result.preservedManualFormats,
+      hasBlocker: result.hasBlocker,
+    };
+
+    await env.DB.batch([
+      env.DB.prepare(
+        `UPDATE stories
+            SET status = ?,
+                headline = ?,
+                formats_json = ?,
+                facts_json = ?,
+                has_blocker = ?,
+                blocker_reason = ?,
+                checks_facts_verified = 0,
+                checks_attribution_verified = 0,
+                updated_at = ?
+          WHERE id = ?`,
+      ).bind(
+        STORY_STATUS_REVIEW,
+        result.headline,
+        JSON.stringify(result.formats),
+        JSON.stringify(result.facts),
+        result.hasBlocker ? 1 : 0,
+        result.hasBlocker ? result.blockerReason : null,
+        now,
+        id,
+      ),
+      env.DB.prepare(
+        'INSERT INTO story_events (story_id, event_type, detail, created_at) VALUES (?, ?, ?, ?)',
+      ).bind(id, 'extract_succeeded', JSON.stringify(eventDetail), now),
+    ]);
+
+    const updatedRow = await env.DB.prepare(`SELECT ${STORY_COLUMNS} FROM stories WHERE id = ?`)
+      .bind(id)
+      .first<StoryRow>();
+    if (!updatedRow) throw new Error('story vanished after extract');
+
+    const aiMetadata: StoryAIMetadataDto = {
+      usage: result.usage,
+      editorialNotes: result.editorialNotes,
+      attributionFlags: result.attributionFlags,
+      numberWarnings: result.numberWarnings,
+      generatedAt: now,
+    };
+
+    const payload: StoryExtractResponseDto = {
+      story: toDto(updatedRow, aiMetadata),
+      usage: result.usage,
+      editorialNotes: result.editorialNotes,
+      attributionFlags: result.attributionFlags,
+      numberWarnings: result.numberWarnings,
+      preservedManualFormats: result.preservedManualFormats,
+    };
+
+    return json(payload);
+  } catch (err) {
+    if (err instanceof AIProviderException) {
+      const now = new Date().toISOString();
+      await env.DB.prepare(
+        'INSERT INTO story_events (story_id, event_type, detail, created_at) VALUES (?, ?, ?, ?)',
+      )
+        .bind(
+          id,
+          'extract_failed',
+          JSON.stringify({
+            errorClass: err.errorClass,
+            provider: providerOpt ?? settingsRow.model_provider,
+            model: modelOpt ?? settingsRow.model_name,
+          }),
+          now,
+        )
+        .run();
+
+      return json(
+        {
+          error: err.errorClass,
+          message: err.userMessage,
+        },
+        err.statusCode,
+      );
+    }
+    throw err;
+  }
+}
+
