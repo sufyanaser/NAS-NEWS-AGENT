@@ -327,30 +327,26 @@ export function mountArchive(container: HTMLElement, opts: ArchiveOptions): Edit
   container.append(
     h(
       'div',
-      { class: 'stack' },
+      { class: 'archive-fit-stack' },
       h(
         'section',
-        { class: 'card' },
+        { class: 'card archive-top-card' },
         h(
           'div',
-          { class: 'card-head' },
+          { class: 'card-head compact-head' },
           h(
             'div',
-            {},
-            h(
-              'div',
-              { class: 'title-with-icon' },
-              h('img', { src: '/assets/icons/nav-drafts.png', alt: '', class: 'section-icon', width: '24', height: '24' }),
-              h('h2', { class: 'card-title' }, 'أرشيف غرفة الأخبار والتصنيف التلقائي'),
-            ),
-            h('p', { class: 'card-sub' }, 'تصنّف الأخبار تلقائياً حسب الصيغ المختارة لها (راديو، موقع، فيسبوك، عاجل) دون تكرار السجل في قاعدة البيانات.'),
+            { class: 'title-with-icon' },
+            h('img', { src: '/assets/icons/nav-drafts.png', alt: '', class: 'section-icon', width: '20', height: '20' }),
+            h('h2', { class: 'card-title' }, 'أرشيف الأخبار والمسودات والتصنيف التلقائي'),
           ),
+          h('span', { class: 'note' }, 'استكمل المسودات المحفوظة أو تصفّح الأخبار المعتمدة والمنشورة حسب القسم أو الحالة'),
         ),
         sectionCardsHost,
       ),
       h(
         'section',
-        { class: 'card' },
+        { class: 'card archive-list-card' },
         h(
           'div',
           { class: 'archive-filters-bar' },

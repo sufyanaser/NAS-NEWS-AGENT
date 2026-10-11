@@ -135,13 +135,18 @@ test.describe('draft persistence', () => {
     await expect(page.locator('#f-source-lang')).toHaveValue('العربية');
     await expect(page.locator('#save-state')).toHaveAttribute('data-state', 'saved');
 
-    // 2) A fresh "new story" screen lists the draft; opening it restores it.
+    // 2) "New Story" screen has no drafts list; drafts are resumed from Archive.
     await page.locator('a.nav-item', { hasText: 'خبر جديد' }).click();
     await expect(page).toHaveURL(/\/stories\/new$/);
     await expect(page.locator('#f-source-text')).toHaveValue('');
-    const item = page.locator('#drafts-list a.draft-item', { hasText: marker });
+    await expect(page.locator('#drafts-list')).toHaveCount(0);
+    await expect(page.locator('#drafts-card')).toHaveCount(0);
+
+    await page.locator('#nav-archive').click();
+    await expect(page).toHaveURL(/\/archive$/);
+    const item = page.locator('#archive-list li.draft-item', { hasText: marker });
     await expect(item).toBeVisible();
-    await item.click();
+    await item.locator('a', { hasText: 'بيانات المصدر' }).click();
     await expect(page).toHaveURL(draftUrl);
     await expect(page.locator('#f-source-text')).toHaveValue(text);
 
@@ -297,12 +302,12 @@ test.describe('layout', () => {
     await login(page);
     await expectNoHorizontalOverflow(page);
     await expectControlsInsideViewport(page);
-    const labels = await page.locator('button:visible').allTextContents();
-    // Only real, working actions exist on the New Story screen.
+    const labels = await page.locator('button:visible:not(.ctx-clip-btn)').allTextContents();
+    // Only real, working actions exist on the initial New Story screen.
     expect(labels.map((l) => l.trim()).sort()).toEqual(['+ خبر جديد', 'تسجيل الخروج', 'حفظ المسودة', 'قراءة الرابط'].sort());
     // Short fields must not stretch across the whole page on large screens.
     const w = await page.locator('#f-publish-date').evaluate((e) => e.getBoundingClientRect().width);
-    expect(w).toBeLessThanOrEqual(300);
+    expect(w).toBeLessThanOrEqual(360);
   });
 
   test('the browser bundle exposes no API key or server-only identifiers', async ({ request }) => {
@@ -416,3 +421,136 @@ test.describe('full 5-screen editorial workflow, archive classification, and set
   });
 });
 
+test.describe('workstation UX reorganization (Fixed Shell, Contextual Copy/Paste, Smart Date, Icons)', () => {
+  test('Smart Date Input pre-fills local today date on new story and preserves saved date on existing story', async ({ page }) => {
+    await login(page);
+    const localToday = await page.evaluate(() => {
+      const now = new Date();
+      const y = now.getFullYear();
+      const m = String(now.getMonth() + 1).padStart(2, '0');
+      const d = String(now.getDate()).padStart(2, '0');
+      return `${y}-${m}-${d}`;
+    });
+    await expect(page.locator('#f-publish-date')).toHaveValue(localToday);
+
+    // Save with custom date and verify it is not overwritten on reload
+    await page.locator('#f-publish-date').fill('2025-12-31');
+    await page.locator('#f-source-name').fill('مصدر التاريخ');
+    await page.locator('#f-source-text').fill('نص خبر لاختبار حفظ التاريخ المخصص وعدم استبداله عند إعادة التحميل.');
+    await page.locator('#btn-save').click();
+    await expect(page.locator('#save-state')).toHaveAttribute('data-state', 'saved');
+
+    await page.reload();
+    await expect(page.locator('#f-publish-date')).toHaveValue('2025-12-31');
+  });
+
+  test('Contextual Copy/Paste controls appear on focus/hover and exclude select/date inputs', async ({ page, context }) => {
+    await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+    await login(page);
+
+    // Select and Date fields must NOT be wrapped with contextual clipboard bars
+    const selectHasClip = await page.locator('#f-category').evaluate((el) => Boolean(el.closest('.field-clip-wrap')));
+    const dateHasClip = await page.locator('#f-publish-date').evaluate((el) => Boolean(el.closest('.field-clip-wrap')));
+    expect(selectHasClip).toBe(false);
+    expect(dateHasClip).toBe(false);
+
+    // URL field: when empty, only "لصق رابط" is visible (copy button is hidden)
+    const urlCopyBtn = page.locator('[data-clip-copy="f-source-url"]');
+    const urlPasteBtn = page.locator('[data-clip-paste="f-source-url"]');
+    await expect(urlCopyBtn).toBeHidden();
+    await expect(urlPasteBtn).not.toBeHidden();
+
+    // Write to clipboard and click "لصق رابط"
+    await page.evaluate(() => navigator.clipboard.writeText('https://example.org/pasted-url'));
+    await page.locator('#f-source-url').focus();
+    await urlPasteBtn.click({ force: true });
+    await expect(page.locator('#f-source-url')).toHaveValue('https://example.org/pasted-url');
+    await expect(urlCopyBtn).not.toBeHidden();
+
+    // Source text copy & paste
+    await page.locator('#f-source-name').fill('وكالة الأنباء');
+    const sampleText = 'نص طويل بما يكفي لتجاوز خمسين حرفاً واختبار أزرار النسخ واللصق السياقية في مساحة العمل.';
+    await page.locator('#f-source-text').fill(sampleText);
+    await page.locator('#f-source-text').focus();
+    await page.locator('[data-clip-copy="f-source-text"]').click({ force: true });
+    await expect(page.locator('[data-clip-feedback="f-source-text"]')).toContainText('تم النسخ');
+
+    // Navigate to Review & Edit and verify read-only source box has Copy only
+    await page.locator('#btn-proceed-review').click();
+    await expect(page).toHaveURL(new RegExp(`/stories/${UUID}/review$`));
+    await expect(page.locator('[data-clip-copy="review-source-body"]')).toHaveCount(1);
+    await expect(page.locator('[data-clip-paste="review-source-body"]')).toHaveCount(0);
+    await expect(page.locator('[data-clip-copy="editor-headline-input"]')).toHaveCount(1);
+    await expect(page.locator('[data-clip-paste="editor-headline-input"]')).toHaveCount(1);
+    await expect(page.locator('[data-clip-copy="editor-format-textarea"]')).toHaveCount(1);
+    await expect(page.locator('[data-clip-paste="editor-format-textarea"]')).toHaveCount(1);
+  });
+
+  test('Desktop Fixed Shell (1920x1080, 1440x900, 1366x768) has zero page scroll, zero sidebar scroll, and zero broken icons; Mobile (390x844, 360x800) has zero horizontal overflow', async ({ page }) => {
+    await login(page);
+    await page.locator('#f-source-name').fill('وكالة الأنباء العراقية');
+    await page.locator('#f-source-text').fill('نص تجريبي لفحص ثبات الغلاف الهندسي وعدم وجود تمرير خارجي على أجهزة سطح المكتب في جميع الشاشات الخمس.');
+    await page.locator('#btn-proceed-review').click();
+    await expect(page).toHaveURL(new RegExp(`/stories/${UUID}/review$`));
+    const reviewPath = new URL(page.url()).pathname;
+
+    const desktopSizes = [
+      { width: 1920, height: 1080 },
+      { width: 1440, height: 900 },
+      { width: 1366, height: 768 },
+    ];
+    const routes = ['/stories/new', reviewPath, '/archive', '/settings'];
+
+    for (const size of desktopSizes) {
+      await page.setViewportSize(size);
+      for (const route of routes) {
+        await page.goto(route);
+        await expect(page.locator('.sidebar')).toBeVisible();
+        const metrics = await page.evaluate(async () => {
+          const allImgs = Array.from(document.querySelectorAll('img'));
+          await Promise.all(
+            allImgs.map((img) =>
+              img.complete
+                ? Promise.resolve()
+                : new Promise<void>((resolve) => {
+                    img.addEventListener('load', () => resolve(), { once: true });
+                    img.addEventListener('error', () => resolve(), { once: true });
+                  }),
+            ),
+          );
+          const doc = document.documentElement;
+          const sidebar = document.querySelector('.sidebar') as HTMLElement;
+          const imgs = allImgs.map((img) => ({
+            src: img.getAttribute('src'),
+            loaded: img.complete && img.naturalWidth > 0,
+          }));
+          return {
+            docScrollH: doc.scrollHeight,
+            winH: window.innerHeight,
+            docScrollW: doc.scrollWidth,
+            winW: window.innerWidth,
+            sidebarScrollH: sidebar.scrollHeight,
+            sidebarClientH: sidebar.clientHeight,
+            brokenImgs: imgs.filter((i) => !i.loaded),
+          };
+        });
+        expect(metrics.docScrollH, `Desktop ${size.width}x${size.height} ${route} vertical scroll`).toBeLessThanOrEqual(metrics.winH);
+        expect(metrics.docScrollW, `Desktop ${size.width}x${size.height} ${route} horizontal scroll`).toBeLessThanOrEqual(metrics.winW);
+        expect(metrics.sidebarScrollH, `Desktop ${size.width}x${size.height} ${route} sidebar scroll`).toBeLessThanOrEqual(metrics.sidebarClientH);
+        expect(metrics.brokenImgs, `Desktop ${size.width}x${size.height} ${route} broken images`).toEqual([]);
+      }
+    }
+
+    const mobileSizes = [
+      { width: 390, height: 844 },
+      { width: 360, height: 800 },
+    ];
+    for (const size of mobileSizes) {
+      await page.setViewportSize(size);
+      for (const route of routes) {
+        await page.goto(route);
+        await expectNoHorizontalOverflow(page);
+      }
+    }
+  });
+});

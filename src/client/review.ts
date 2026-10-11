@@ -2,6 +2,7 @@
 import { FORMAT_KEYS, FORMAT_LABELS, LIMITS } from '../shared/contracts';
 import type { FactType, FormatKey, StoryDto, StoryFact, StoryFormats, StoryPatchBody } from '../shared/contracts';
 import { ApiError, api } from './api';
+import { wrapReadOnlyWithCopy, wrapWithCopyPaste } from './clipboard';
 import { clear, h } from './dom';
 import type { EditorHandle } from './editor';
 
@@ -182,6 +183,8 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
   const sourceDateCatEl = h('span', { class: 'source-meta-val', id: 'review-source-date' }, '—');
   const sourceUrlEl = h('span', { class: 'source-meta-val ltr', id: 'review-source-url' }, '—');
   const sourceBodyEl = h('div', { class: 'source-reading-box', id: 'review-source-body' }, '');
+  const sourceBodyCopyWrap = wrapReadOnlyWithCopy(sourceBodyEl, 'نسخ النص');
+
   const editSourceBtn = h(
     'button',
     {
@@ -216,14 +219,14 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     { class: 'card source-sticky-card', id: 'card-source' },
     h(
       'div',
-      { class: 'card-head' },
+      { class: 'card-head compact-head' },
       h(
         'div',
         {},
         h(
           'div',
           { class: 'title-with-icon' },
-          h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
+          h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'section-icon', width: '20', height: '20' }),
           h('h2', { class: 'card-title' }, 'بطاقة المصدر الأصلي'),
         ),
         h('p', { class: 'card-sub' }, 'مرجع المقارنة المباشرة للأسماء والأرقام والتواريخ'),
@@ -237,30 +240,25 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
       h('div', { class: 'source-meta-item' }, h('span', { class: 'source-meta-label' }, 'تاريخ النشر والتصنيف'), sourceDateCatEl),
       h('div', { class: 'source-meta-item full' }, h('span', { class: 'source-meta-label' }, 'رابط المصدر الموثق'), sourceUrlEl),
     ),
-    sourceBodyEl,
+    sourceBodyCopyWrap,
   );
 
   // Card 2: Facts & Missing Info
   const aiStatusBanner = h(
-    'div',
-    { class: 'alert alert-info', id: 'ai-disconnected-notice' },
-    h(
-      'div',
-      {},
-      h('strong', {}, 'الاستخراج الآلي (AI) غير متصل حالياً: '),
-      h('span', {}, 'يمكنك توثيق الحقائق والأرقام والنواقص يدوياً أدناه مع إسنادها المباشر للمصدر.'),
-    ),
+    'span',
+    { class: 'note', id: 'ai-disconnected-notice' },
+    'الاستخراج الآلي (AI) غير متصل — وثّق الحقائق والنواقص يدوياً',
   );
 
   const factsSummaryBadge = h('span', { class: 'badge', id: 'facts-summary-badge' }, '0 حقائق موثقة');
   const factsListHost = h('div', { class: 'facts-list', id: 'facts-list-container' });
 
   // Add Fact form
-  const newFactLabel = h('input', { type: 'text', class: 'input', id: 'input-fact-label', placeholder: 'العنصر (مثال: الأرقام، المتحدث)' });
-  const newFactValue = h('input', { type: 'text', class: 'input', id: 'input-fact-value', placeholder: 'المعلومة أو النقص كما ورد في المصدر…' });
+  const newFactLabel = h('input', { type: 'text', class: 'input input-sm', id: 'input-fact-label', placeholder: 'العنصر (مثال: الأرقام، المتحدث)' });
+  const newFactValue = h('input', { type: 'text', class: 'input input-sm', id: 'input-fact-value', placeholder: 'المعلومة أو النقص كما ورد في المصدر…' });
   const newFactType = h(
     'select',
-    { class: 'select', id: 'select-fact-type' },
+    { class: 'select select-sm', id: 'select-fact-type' },
     h('option', { value: 'sourced' }, 'وارد في المصدر'),
     h('option', { value: 'missing' }, 'غير مذكور في المصدر (نقص)'),
     h('option', { value: 'review-req' }, 'يحتاج مراجعة إسناد (مانع)'),
@@ -272,14 +270,14 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
   const blockerReasonSpan = h('span', { id: 'editorial-blocker-text' }, '');
   const resolveNoteInput = h('input', {
     type: 'text',
-    class: 'input',
+    class: 'input input-sm',
     id: 'input-resolve-blocker-note',
     placeholder: 'اكتب ملاحظة معالجة المانع التحريري (مثال: تم حذف الادعاء غير المسند)…',
   });
   const resolveBlockerBtn = h('button', { type: 'button', class: 'btn btn-sm btn-danger-outline', id: 'btn-resolve-blocker' }, 'تأكيد معالجة المانع');
   const blockerBox = h(
     'div',
-    { class: 'alert alert-danger', id: 'editorial-blocker-box', hidden: true },
+    { class: 'alert alert-danger compact-alert', id: 'editorial-blocker-box', hidden: true },
     h('div', {}, h('strong', {}, 'مانع تحريري يمنع الاعتماد: '), blockerReasonSpan),
     h('div', { class: 'input-with-button' }, resolveNoteInput, resolveBlockerBtn),
   );
@@ -288,24 +286,19 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
   const factsCard = h(
     'article',
-    { class: 'card', id: 'card-facts' },
+    { class: 'card review-facts-card', id: 'card-facts' },
     h(
       'div',
-      { class: 'card-head' },
+      { class: 'card-head compact-head' },
       h(
         'div',
-        {},
-        h(
-          'div',
-          { class: 'title-with-icon' },
-          h('img', { src: '/assets/icons/tool-ai.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
-          h('h2', { class: 'card-title' }, 'بطاقة الحقائق والنواقص (إدخال ومراجعة يدوية)'),
-        ),
-        h('p', { class: 'card-sub' }, 'توثيق الحقائق والأسماء والأرقام والنواقص مقارنةً بالمصدر الأصلي'),
+        { class: 'title-with-icon' },
+        h('img', { src: '/assets/icons/tool-ai.png', alt: '', class: 'section-icon', width: '20', height: '20' }),
+        h('h2', { class: 'card-title' }, 'الحقائق والنواقص'),
+        aiStatusBanner,
       ),
       h('div', { class: 'stack-row' }, factsSummaryBadge, flagBlockerBtn),
     ),
-    aiStatusBanner,
     blockerBox,
     factsListHost,
     addFactRow,
@@ -319,6 +312,10 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     id: 'editor-headline-input',
     maxlength: String(LIMITS.headline),
     placeholder: 'عنوان الخبر الواضح والمسند…',
+  });
+  const headlineClip = wrapWithCopyPaste(headlineInput, {
+    copyLabel: 'نسخ',
+    pasteLabel: 'لصق',
   });
   const headlineCounter = h('span', { class: 'hint', id: 'headline-char-count' }, '0 حرف');
 
@@ -359,15 +356,16 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
   const formatClassificationBar = h(
     'div',
-    { class: 'save-bar' },
-    h('span', { class: 'note' }, 'الصيغ المعتمدة للأرشفة التلقائية:'),
+    { class: 'format-tabs-bar' },
+    h('div', { class: 'format-tabs', role: 'tablist' }, formatTabButtons.radio, formatTabButtons.web, formatTabButtons.facebook, formatTabButtons.urgent),
     h(
       'div',
-      { class: 'stack-row' },
+      { class: 'stack-row format-archive-checks' },
+      h('span', { class: 'note' }, 'الأرشفة:'),
       ...FORMAT_KEYS.map((fmt) =>
         h(
           'label',
-          { class: 'check-item' },
+          { class: 'check-item compact-check' },
           reviewFormatCheckboxes[fmt],
           h('span', {}, FORMAT_LABELS[fmt]),
         ),
@@ -377,56 +375,52 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
   const urgentOptinBox = h(
     'div',
-    { class: 'alert alert-warn', id: 'urgent-optin-box', hidden: true },
-    h('div', {}, h('strong', {}, 'الشريط العاجل اختياري عند الحاجة فقط: '), h('span', {}, 'لم يتم تفعيل الشريط العاجل لهذا الخبر بعد.')),
+    { class: 'alert alert-warn compact-alert', id: 'urgent-optin-box', hidden: true },
+    h('div', {}, h('strong', {}, 'الشريط العاجل اختياري: '), h('span', {}, 'لم يتم تفعيله لهذا الخبر بعد.')),
     h('button', { type: 'button', class: 'btn btn-sm', id: 'btn-enable-urgent' }, 'تفعيل الشريط العاجل لهذا الخبر'),
   );
 
   const formatTextarea = h('textarea', {
-    class: 'textarea',
+    class: 'textarea review-fit-textarea',
     id: 'editor-format-textarea',
     placeholder: 'اكتب أو حرر الصياغة الصحفية لهذه الصيغة هنا استناداً إلى المصدر…',
   });
+  const formatClip = wrapWithCopyPaste(formatTextarea, {
+    copyLabel: 'نسخ الصيغة',
+    pasteLabel: 'لصق النص',
+    multiline: true,
+  });
+
   const formatHintEl = h('span', { class: 'note', id: 'editor-format-hint' }, FORMAT_HINTS.radio);
   const copyFormatBtn = h('button', { type: 'button', class: 'btn btn-sm', id: 'btn-copy-current-format' }, 'نسخ نص الصيغة');
   const saveDraftBtn = h('button', { type: 'button', class: 'btn btn-sm btn-primary', id: 'btn-review-save' }, 'حفظ التعديلات الآن');
 
   const draftCard = h(
     'article',
-    { class: 'card', id: 'card-draft' },
+    { class: 'card review-draft-card', id: 'card-draft' },
     h(
       'div',
-      { class: 'card-head' },
+      { class: 'card-head compact-head' },
       h(
         'div',
-        {},
-        h(
-          'div',
-          { class: 'title-with-icon' },
-          h('img', { src: '/assets/icons/format-radio.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
-          h('h2', { class: 'card-title' }, 'بطاقة الصياغة والتحرير'),
-        ),
-        h('p', { class: 'card-sub' }, 'حرر الصيغ الأربع بشكل مستقل وقارنها بالمصدر — تحفظ التعديلات تلقائياً'),
+        { class: 'title-with-icon' },
+        h('img', { src: '/assets/icons/format-radio.png', alt: '', class: 'section-icon', width: '20', height: '20' }),
+        h('h2', { class: 'card-title' }, 'الصياغة والتحرير'),
       ),
       h('div', { class: 'stack-row' }, radioMeter, saveBadge),
     ),
     h(
       'div',
-      { class: 'field' },
+      { class: 'field compact-headline-field' },
       h('label', { class: 'label', for: 'editor-headline-input' }, h('span', {}, 'عنوان الخبر الرئيسي'), headlineCounter),
-      headlineInput,
+      headlineClip.wrapper,
     ),
     formatClassificationBar,
-    h(
-      'div',
-      { class: 'format-tabs-bar' },
-      h('div', { class: 'format-tabs', role: 'tablist' }, formatTabButtons.radio, formatTabButtons.web, formatTabButtons.facebook, formatTabButtons.urgent),
-    ),
     urgentOptinBox,
-    formatTextarea,
+    formatClip.wrapper,
     h(
       'div',
-      { class: 'save-bar' },
+      { class: 'save-bar compact-save-bar' },
       formatHintEl,
       h('div', { class: 'stack-row' }, copyFormatBtn, saveDraftBtn),
     ),
@@ -439,7 +433,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
   const postApprovalBox = h(
     'div',
-    { class: 'alert alert-success', id: 'post-approval-publish-box', hidden: true },
+    { class: 'alert alert-success compact-alert', id: 'post-approval-publish-box', hidden: true },
     h(
       'div',
       {},
@@ -451,11 +445,11 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
 
   const excludeBox = h(
     'div',
-    { class: 'alert alert-danger', id: 'exclude-dialog-box', hidden: true },
+    { class: 'alert alert-danger compact-alert', id: 'exclude-dialog-box', hidden: true },
   );
   const excludeReasonInput = h('input', {
     type: 'text',
-    class: 'input',
+    class: 'input input-sm',
     id: 'input-exclude-reason',
     placeholder: 'أدخل سبب استبعاد الخبر (إلزامي — لا يتم حذف الخبر نهائياً)…',
   });
@@ -466,28 +460,23 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     h('div', { class: 'input-with-button' }, excludeReasonInput, confirmExcludeBtn, cancelExcludeBtn),
   );
 
-  const actionAlertBox = h('div', { class: 'alert alert-danger', id: 'approval-error-box', hidden: true });
-  const approveBtn = h('button', { type: 'button', class: 'btn btn-success', id: 'btn-approve-story', disabled: true }, '✓ اعتماد الخبر');
+  const actionAlertBox = h('div', { class: 'alert alert-danger compact-alert', id: 'approval-error-box', hidden: true });
+  const approveBtn = h('button', { type: 'button', class: 'btn btn-sm btn-success', id: 'btn-approve-story', disabled: true }, '✓ اعتماد الخبر');
   const excludeTriggerBtn = h('button', { type: 'button', class: 'btn btn-danger-outline btn-sm', id: 'btn-exclude-story' }, 'استبعاد المسودة');
 
   const approvalCard = h(
     'article',
-    { class: 'card', id: 'card-approval' },
+    { class: 'card review-approval-card', id: 'card-approval' },
     h(
       'div',
-      { class: 'card-head' },
+      { class: 'card-head compact-head' },
       h(
         'div',
-        {},
-        h(
-          'div',
-          { class: 'title-with-icon' },
-          h('img', { src: '/assets/icons/tool-security.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
-          h('h2', { class: 'card-title' }, 'بطاقة التحقق البشري وإجراءات الاعتماد'),
-        ),
-        h('p', { class: 'card-sub' }, 'لا يُعتمد أي خبر إلا بعد تأكيد المراجعة البشرية للأسماء والأرقام والإسناد على الخادم'),
+        { class: 'title-with-icon' },
+        h('img', { src: '/assets/icons/tool-security.png', alt: '', class: 'section-icon', width: '20', height: '20' }),
+        h('h2', { class: 'card-title' }, 'التحقق البشري وإجراءات الاعتماد'),
       ),
-      readinessBadge,
+      h('div', { class: 'stack-row' }, readinessBadge, approveBtn, excludeTriggerBtn),
     ),
     startReviewBanner,
     postApprovalBox,
@@ -508,12 +497,6 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
         chkAttribution,
         h('span', {}, 'تأكدت من دقة إسناد التصريحات، وخلو جميع الصيغ من أي ادعاء غير مذكور في المصدر.'),
       ),
-    ),
-    h(
-      'div',
-      { class: 'save-bar' },
-      h('div', { class: 'stack-row' }, approveBtn),
-      h('div', { class: 'stack-row' }, excludeTriggerBtn),
     ),
   );
 
@@ -561,9 +544,11 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     if (fmt === 'urgent' && !urgentEnabledVal) {
       urgentOptinBox.hidden = false;
       formatTextarea.disabled = true;
+      formatClip.refreshState(true);
     } else {
       urgentOptinBox.hidden = true;
       formatTextarea.disabled = readOnly;
+      formatClip.refreshState(readOnly);
     }
     updateMeters();
   }
@@ -709,6 +694,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     chkAttribution.disabled = readOnly;
 
     headlineInput.disabled = readOnly;
+    headlineClip.refreshState(readOnly);
     newFactLabel.disabled = readOnly;
     newFactValue.disabled = readOnly;
     newFactType.disabled = readOnly;
@@ -845,6 +831,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
       if (activeFormat === 'urgent') {
         urgentOptinBox.hidden = urgentEnabledVal;
         formatTextarea.disabled = !urgentEnabledVal || readOnly;
+        formatClip.refreshState(!urgentEnabledVal || readOnly);
       }
       triggerEdit();
     });
@@ -857,6 +844,7 @@ export function mountReview(container: HTMLElement, opts: ReviewOptions): Editor
     reviewFormatCheckboxes.urgent.checked = true;
     urgentOptinBox.hidden = true;
     formatTextarea.disabled = readOnly;
+    formatClip.refreshState(readOnly);
     formatTextarea.focus();
     triggerEdit();
   });

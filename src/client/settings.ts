@@ -210,7 +210,7 @@ export function mountSettings(container: HTMLElement, opts: SettingsOptions): Ed
           h(
             'div',
             { class: 'title-with-icon' },
-            h('img', { src: '/assets/icons/status-ai.png', alt: '', class: 'section-icon', width: '24', height: '24' }),
+            h('img', { src: '/assets/icons/tool-ai.png', alt: '', class: 'section-icon', width: '24', height: '24' }),
             h('h2', { class: 'card-title' }, 'إعدادات نموذج الذكاء الاصطناعي (للمرحلة القادمة)'),
           ),
           h('p', { class: 'card-sub' }, 'تُضبط تفضيلات المزود والنموذج هنا؛ بينما يُدار مفتاح الربط السري حصرياً عبر خادم Cloudflare ولا يُطلب أو يُعرض في المتصفح أبداً.'),

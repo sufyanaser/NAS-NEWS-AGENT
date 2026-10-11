@@ -1,7 +1,8 @@
-/** "خبر جديد" / Source Editor with format selection, source sufficiency, and real server-confirmed autosave. */
+/** "خبر جديد" / Source Editor — Fit-to-viewport workspace with contextual copy/paste, smart local date, format selection, and D1 autosave. */
 import { CATEGORIES, FORMAT_KEYS, LIMITS, SOURCE_LANGS } from '../shared/contracts';
-import type { FormatKey, StoryDto, StoryPatchBody, StorySummaryDto } from '../shared/contracts';
+import type { FormatKey, StoryDto, StoryPatchBody } from '../shared/contracts';
 import { ApiError, api } from './api';
+import { wrapWithCopyPaste } from './clipboard';
 import { clear, h } from './dom';
 
 const AUTOSAVE_DEBOUNCE_MS = 1500;
@@ -13,6 +14,14 @@ type Fields = Record<FieldKey, string>;
 type SaveState = 'idle' | 'saving' | 'saved' | 'failed';
 
 const EDITABLE_STATUSES = ['مسودة', 'قيد المراجعة'];
+
+/** Computes YYYY-MM-DD in the user's local timezone (never UTC directly). */
+export function getLocalTodayIsoDate(now = new Date()): string {
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
 
 function emptyFields(): Fields {
   return { sourceName: '', sourceUrl: '', publishDate: '', category: '', sourceLang: '', sourceText: '' };
@@ -55,7 +64,7 @@ const FORMAT_META: Record<FormatKey, { title: string; sub: string; icon: string 
   radio: { title: 'موجز إذاعي', sub: 'لقراءة المذيع على الهواء', icon: '/assets/icons/format-radio.png' },
   web: { title: 'خبر موقع', sub: 'للنشر على الموقع الرقمي', icon: '/assets/icons/format-web.png' },
   facebook: { title: 'منشور تواصل', sub: 'لصفحات التواصل الاجتماعي', icon: '/assets/icons/format-podcast.png' },
-  urgent: { title: 'عاجل (اختياري)', sub: 'للشريط العاجل عند الحاجة فقط', icon: '/assets/icons/format-urgent.png' },
+  urgent: { title: 'عاجل (اختياري)', sub: 'للشريط العاجل عند الحاجة', icon: '/assets/icons/format-urgent.png' },
 };
 
 export function mountEditor(container: HTMLElement, opts: EditorOptions): EditorHandle {
@@ -76,25 +85,82 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   let currentStatus = 'مسودة';
   let currentHeadline = '';
 
+  const localToday = getLocalTodayIsoDate();
+
   // ---- static skeleton -------------------------------------------------------------------------
   const titleText = h('h2', { class: 'card-title' }, 'إدخال مادة خبرية');
   const title = h(
     'div',
     { class: 'title-with-icon' },
-    h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'section-icon', width: '24', height: '24' }),
+    h('img', { src: '/assets/icons/nav-new-story.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
     titleText,
   );
   const statusBadge = h('span', { class: 'badge', hidden: true });
-  const subtitle = h('p', { class: 'card-sub' }, 'الصق النص الأصلي وبيانات المصدر. تُحفظ المسودة تلقائياً على الخادم ويمكن استعادتها لاحقاً.');
+  const subtitle = h('p', { class: 'card-sub' }, 'الصق النص الأصلي وبيانات المصدر وحدد الصيغ المطلوبة؛ تُحفظ المسودة تلقائياً في قاعدة البيانات.');
 
-  const nameInput = h('input', { id: 'f-source-name', class: 'input', type: 'text', maxlength: '200', autocomplete: 'off', placeholder: 'مثال: وكالة الأنباء العراقية' });
-  const urlInput = h('input', { id: 'f-source-url', class: 'input ltr', type: 'text', inputmode: 'url', maxlength: '2048', autocomplete: 'off', placeholder: 'https://example.org/news-item' });
-  const dateInput = h('input', { id: 'f-publish-date', class: 'input', type: 'date' });
-  const categorySelect = h('select', { id: 'f-category', class: 'select' }, h('option', { value: '' }, '— غير محدد —'), ...CATEGORIES.map((c) => h('option', { value: c }, c)));
-  const langSelect = h('select', { id: 'f-source-lang', class: 'select' }, h('option', { value: '' }, '— غير محدد —'), ...SOURCE_LANGS.map((l) => h('option', { value: l }, l)));
-  const textArea = h('textarea', { id: 'f-source-text', class: 'textarea', placeholder: 'الصق النص الكامل للخبر من المصدر هنا…' });
+  const nameInput = h('input', {
+    id: 'f-source-name',
+    class: 'input',
+    type: 'text',
+    maxlength: '200',
+    autocomplete: 'off',
+    placeholder: 'مثال: وكالة الأنباء العراقية',
+  });
+  const urlInput = h('input', {
+    id: 'f-source-url',
+    class: 'input ltr',
+    type: 'text',
+    inputmode: 'url',
+    maxlength: '2048',
+    autocomplete: 'off',
+    placeholder: 'https://example.org/news-item',
+  });
+  const dateInput = h('input', {
+    id: 'f-publish-date',
+    class: 'input',
+    type: 'date',
+    value: id === null ? localToday : '',
+  });
+  const categorySelect = h(
+    'select',
+    { id: 'f-category', class: 'select' },
+    h('option', { value: '' }, '— غير محدد —'),
+    ...CATEGORIES.map((c) => h('option', { value: c }, c)),
+  );
+  const langSelect = h(
+    'select',
+    { id: 'f-source-lang', class: 'select' },
+    h('option', { value: '' }, '— غير محدد —'),
+    ...SOURCE_LANGS.map((l) => h('option', { value: l }, l)),
+  );
+  const textArea = h('textarea', {
+    id: 'f-source-text',
+    class: 'textarea editor-fit-textarea',
+    placeholder: 'الصق النص الكامل للخبر من المصدر هنا…',
+  });
+
+  // Contextual Copy/Paste wrappers (Phase 6)
+  const urlClip = wrapWithCopyPaste(urlInput, {
+    copyLabel: 'نسخ الرابط',
+    pasteLabel: 'لصق رابط',
+    copyOnlyWhenNonEmpty: true,
+  });
+  const nameClip = wrapWithCopyPaste(nameInput, {
+    copyLabel: 'نسخ',
+    pasteLabel: 'لصق',
+  });
+  const textClip = wrapWithCopyPaste(textArea, {
+    copyLabel: 'نسخ النص',
+    pasteLabel: 'لصق',
+    multiline: true,
+  });
+
   const counter = h('span', { class: 'note', id: 'char-counter' }, '0 حرف');
-  const sufficiencyBadge = h('span', { class: 'sufficiency-badge short', id: 'sufficiency-badge' }, 'مادة غير كافية (يتطلب اسم المصدر + 50 حرفاً)');
+  const sufficiencyBadge = h(
+    'span',
+    { class: 'sufficiency-badge short', id: 'sufficiency-badge' },
+    'مادة غير كافية (يتطلب اسم المصدر + 50 حرفاً)',
+  );
 
   const importButton = h('button', { type: 'button', id: 'btn-import', class: 'btn btn-sm' }, 'قراءة الرابط');
   const importBox = h('div', { id: 'import-status', class: 'alert', role: 'alert', hidden: true });
@@ -104,7 +170,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     radio: h('input', { type: 'checkbox', id: 'chk-fmt-radio', checked: true }),
     web: h('input', { type: 'checkbox', id: 'chk-fmt-web', checked: true }),
     facebook: h('input', { type: 'checkbox', id: 'chk-fmt-facebook', checked: true }),
-    urgent: h('input', { type: 'checkbox', id: 'chk-fmt-urgent' }), // Urgent is optional, never checked by default
+    urgent: h('input', { type: 'checkbox', id: 'chk-fmt-urgent' }),
   };
 
   const formatsGrid = h(
@@ -115,7 +181,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         'label',
         { class: 'format-check-card', 'data-fmt': fmt },
         formatCheckboxes[fmt],
-        h('img', { src: FORMAT_META[fmt].icon, alt: '', width: '22', height: '22' }),
+        h('img', { src: FORMAT_META[fmt].icon, alt: '', width: '20', height: '20' }),
         h('div', { class: 'format-check-info' }, h('strong', {}, FORMAT_META[fmt].title), h('small', {}, FORMAT_META[fmt].sub)),
       ),
     ),
@@ -137,16 +203,24 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
   const errorBox = h('div', { id: 'save-error', class: 'alert alert-danger', role: 'alert', hidden: true });
   const lockedNote = h('div', { class: 'alert alert-warn', hidden: true }, 'هذا الخبر خرج من مرحلة المسودة، فالحقول للقراءة فقط في هذه النسخة.');
 
-  const field = (label: string, input: HTMLElement, hint?: string): HTMLElement =>
-    h('div', { class: 'field' }, h('label', { class: 'label', for: input.id }, h('span', {}, label), hint ? h('span', { class: 'hint' }, hint) : null), input);
-
-  const draftsHost = h('section', { class: 'card', id: 'drafts-card' });
+  const field = (label: string, controlEl: HTMLElement, forId: string, hint?: string): HTMLElement =>
+    h(
+      'div',
+      { class: 'field' },
+      h('label', { class: 'label', for: forId }, h('span', {}, label), hint ? h('span', { class: 'hint' }, hint) : null),
+      controlEl,
+    );
 
   const urlFieldContainer = h(
     'div',
     { class: 'field' },
-    h('label', { class: 'label', for: 'f-source-url' }, h('span', {}, 'رابط المصدر'), h('span', { class: 'hint' }, 'يدعم روابط HTTPS المباشرة؛ إذا تعذّرت القراءة يمكنك لصق النص يدوياً')),
-    h('div', { class: 'input-with-button' }, urlInput, importButton),
+    h(
+      'label',
+      { class: 'label', for: 'f-source-url' },
+      h('span', {}, 'رابط المصدر'),
+      h('span', { class: 'hint' }, 'يدعم روابط HTTPS المباشرة؛ أو الصق النص يدوياً'),
+    ),
+    h('div', { class: 'input-with-button' }, urlClip.wrapper, importButton),
   );
 
   const formatsFieldContainer = h(
@@ -156,32 +230,49 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       'div',
       { class: 'label' },
       h('span', {}, 'الصيغ المطلوبة للخبر (تصنيف الأرشيف التلقائي)'),
-      h('span', { class: 'hint' }, 'يمكن اختيار أكثر من صيغة؛ يظهر الخبر تلقائياً في أقسام الأرشيف المختارة دون تكرار السجل'),
+      h('span', { class: 'hint' }, 'يظهر الخبر تلقائياً في أقسام الأرشيف المختارة دون تكرار السجل'),
     ),
     formatsGrid,
   );
 
+  const sourceTextSection = h(
+    'div',
+    { class: 'field editor-textarea-field' },
+    h(
+      'label',
+      { class: 'label', for: 'f-source-text' },
+      h('span', {}, 'النص الأصلي للمادة الخبرية'),
+      h('div', { class: 'sufficiency-bar' }, counter, sufficiencyBadge),
+    ),
+    textClip.wrapper,
+  );
+
   const card = h(
     'article',
-    { class: 'card' },
-    h('div', { class: 'card-head' }, h('div', {}, title, subtitle), statusBadge),
+    { class: 'card editor-fit-card' },
+    h('div', { class: 'card-head compact-head' }, h('div', {}, title, subtitle), statusBadge),
     lockedNote,
     urlFieldContainer,
     importBox,
-    h('div', { class: 'grid-meta' }, field('اسم المصدر / الجهة', nameInput), field('تاريخ النشر', dateInput), field('تصنيف الخبر', categorySelect), field('لغة المادة الأصلية', langSelect)),
-    formatsFieldContainer,
     h(
       'div',
-      { class: 'field' },
-      h('label', { class: 'label', for: 'f-source-text' }, h('span', {}, 'النص الأصلي للمادة الخبرية'), h('span', { class: 'hint' }, 'المرجع الوحيد لاستخراج الحقائق ومطابقة الصياغة')),
-      textArea,
-      h('div', { class: 'sufficiency-bar' }, counter, sufficiencyBadge),
+      { class: 'grid-meta-4' },
+      field('اسم المصدر / الجهة', nameClip.wrapper, 'f-source-name'),
+      field('تاريخ النشر', dateInput, 'f-publish-date'),
+      field('تصنيف الخبر', categorySelect, 'f-category'),
+      field('لغة المادة الأصلية', langSelect, 'f-source-lang'),
     ),
+    formatsFieldContainer,
+    sourceTextSection,
     errorBox,
-    h('div', { class: 'save-bar' }, stateLabel, h('div', { class: 'stack-row' }, retryButton, proceedReviewBtn, saveButton)),
-    h('p', { class: 'note' }, 'الاستخراج الآلي بالذكاء الاصطناعي غير متصل في هذه المرحلة؛ يمكنك حفظ المسودة والمتابعة لإدخال الحقائق والصياغات يدوياً.'),
+    h(
+      'div',
+      { class: 'save-bar compact-save-bar' },
+      h('div', { class: 'stack-row' }, stateLabel, h('span', { class: 'note' }, 'استعراض المسودات السابقة متاح في قسم الأرشيف.')),
+      h('div', { class: 'stack-row' }, retryButton, proceedReviewBtn, saveButton),
+    ),
   );
-  container.append(card, draftsHost);
+  container.append(card);
 
   // ---- helpers ---------------------------------------------------------------------------------
   function current(): Fields {
@@ -223,6 +314,12 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       ? 'مادة كافية للمراجعة والتحرير'
       : 'مادة غير كافية (يتطلب اسم المصدر + 50 حرفاً على الأقل)';
     proceedReviewBtn.hidden = !id && !ok;
+  }
+
+  function refreshClips(): void {
+    urlClip.refreshState(readOnly);
+    nameClip.refreshState(readOnly);
+    textClip.refreshState(readOnly);
   }
 
   function setState(next: SaveState, savedAt?: string): void {
@@ -276,7 +373,6 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         savedAt = story.updatedAt;
         updatedStory = story;
         history.replaceState(null, '', `/stories/${story.id}`);
-        void loadDrafts();
       } else {
         const { story } = await api.patchStory(id, changes);
         savedAt = story.updatedAt;
@@ -324,6 +420,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     selectedFormats = currentSelectedFormats();
     version++;
     updateCounter();
+    refreshClips();
     setState('saving');
     schedule(AUTOSAVE_DEBOUNCE_MS);
   }
@@ -367,6 +464,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         importBox.textContent = res.importMessage || 'تم استيراد نص المادة بنجاح.';
         textArea.value = res.sourceText;
         updateCounter();
+        refreshClips();
         version++;
         schedule(500);
       } else {
@@ -389,7 +487,7 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       try {
         await api.startReview(id);
       } catch {
-        //Even if startReview fails, navigate to workspace where user can review
+        // Proceed to review workspace even if startReview returned an error
       }
     }
     opts.navigate(`/stories/${id}/review`);
@@ -414,75 +512,6 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
     }
   };
   window.addEventListener('beforeunload', beforeUnload);
-
-  // ---- drafts list (restore entry point) --------------------------------------------------------
-  async function loadDrafts(): Promise<void> {
-    let stories: StorySummaryDto[] = [];
-    let failed = false;
-    try {
-      stories = (await api.listDrafts(10)).stories;
-    } catch {
-      failed = true;
-    }
-    if (disposed) return;
-    clear(draftsHost);
-    draftsHost.append(
-      h(
-        'div',
-        { class: 'card-head' },
-        h(
-          'div',
-          {},
-          h(
-            'div',
-            { class: 'title-with-icon' },
-            h('img', { src: '/assets/icons/nav-drafts.png', alt: '', class: 'section-icon', width: '22', height: '22' }),
-            h('h2', { class: 'card-title' }, 'المسودات المحفوظة'),
-          ),
-          h('p', { class: 'card-sub' }, 'افتح مسودة لمتابعة التحرير من حيث توقفت.'),
-        ),
-      ),
-    );
-    const others = stories.filter((s) => s.id !== id);
-    if (failed) {
-      draftsHost.append(h('div', { class: 'alert alert-warn' }, 'تعذّر تحميل قائمة المسودات الآن.'));
-    } else if (others.length === 0) {
-      draftsHost.append(h('p', { class: 'note', id: 'drafts-empty' }, 'لا توجد مسودات أخرى محفوظة.'));
-    } else {
-      draftsHost.append(
-        h(
-          'ul',
-          { class: 'draft-list', id: 'drafts-list' },
-          ...others.map((s) =>
-            h(
-              'li',
-              {},
-              h(
-                'a',
-                {
-                  class: 'draft-item',
-                  href: `/stories/${s.id}`,
-                  'data-story-id': s.id,
-                  onClick: (e: Event) => {
-                    e.preventDefault();
-                    opts.navigate(`/stories/${s.id}`);
-                  },
-                },
-                h('div', { class: 'draft-title' }, s.headline || s.sourceName || 'بدون اسم مصدر'),
-                h('div', { class: 'draft-preview' }, s.textPreview || '(لا يوجد نص بعد)'),
-                h(
-                  'div',
-                  { class: 'draft-meta' },
-                  h('span', { class: 'badge', 'data-status': s.status }, s.status),
-                  h('span', {}, formatWhen(s.updatedAt)),
-                ),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-  }
 
   // ---- initial load -----------------------------------------------------------------------------
   function applyStory(s: StoryDto): void {
@@ -512,13 +541,16 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
       for (const fmt of FORMAT_KEYS) formatCheckboxes[fmt].disabled = true;
       importButton.disabled = true;
     }
+    refreshClips();
     setState('saved', s.updatedAt);
   }
 
   if (id === null) {
+    // Keep confirmed.publishDate synchronized with default localToday so we don't flag unsaved before typing,
+    // EXCEPT when the user saves or edits any field we include publishDate in the createStory payload!
     setState('idle');
     updateCounter();
-    void loadDrafts();
+    refreshClips();
   } else {
     const loadingId = id;
     for (const k of FIELD_KEYS) inputs[k].disabled = true;
@@ -532,7 +564,6 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
         for (const k of FIELD_KEYS) inputs[k].disabled = false;
         for (const fmt of FORMAT_KEYS) formatCheckboxes[fmt].disabled = false;
         applyStory(story);
-        void loadDrafts();
       } catch (err) {
         if (disposed) return;
         clear(container);
@@ -547,7 +578,22 @@ export function mountEditor(container: HTMLElement, opts: EditorOptions): Editor
             { class: 'card', id: 'load-error' },
             h('h2', { class: 'card-title' }, notFound ? 'المسودة غير موجودة' : 'تعذّر تحميل المسودة'),
             h('p', { class: 'card-sub' }, notFound ? 'ربما حُذف الرابط أو لم يُحفظ هذا الخبر.' : 'تحقق من الاتصال ثم أعد تحميل الصفحة.'),
-            h('p', {}, h('a', { class: 'btn', href: '/stories/new', onClick: (e: Event) => { e.preventDefault(); opts.navigate('/stories/new'); } }, 'خبر جديد')),
+            h(
+              'p',
+              {},
+              h(
+                'a',
+                {
+                  class: 'btn',
+                  href: '/stories/new',
+                  onClick: (e: Event) => {
+                    e.preventDefault();
+                    opts.navigate('/stories/new');
+                  },
+                },
+                'خبر جديد',
+              ),
+            ),
           ),
         );
       }
