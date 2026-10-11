@@ -1,0 +1,34 @@
+{
+  "name": "nas-newsroom",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NAS Newsroom — internal single-editor newsroom tool (Cloudflare Worker + Static Assets + D1). Local development only; not deployed.",
+  "type": "module",
+  "scripts": {
+    "build": "node scripts/build-client.mjs",
+    "dev": "npm run build && npm run db:migrate && wrangler dev --local --var ALLOWED_ORIGIN:http://localhost:8787",
+    "db:migrate": "wrangler d1 migrations apply nas-newsroom-db --local",
+    "db:seed": "node scripts/seed-user.mjs",
+    "lint": "eslint .",
+    "typecheck": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
+    "test": "vitest run",
+    "test:e2e": "playwright test",
+    "check:bundle": "node scripts/check-bundle.mjs",
+    "check": "npm run lint && npm run typecheck && npm run build && npm run check:bundle && npm test && npm run test:e2e",
+    "pretest": "npm run build"
+  },
+  "devDependencies": {
+    "@cloudflare/vitest-plugin": "^1.4.0",
+    "@cloudflare/workers-types": "^5.20261011.1",
+    "@eslint/js": "^10.0.1",
+    "@playwright/test": "^1.64.0",
+    "@types/node": "^24.19.2",
+    "esbuild": "^0.28.2",
+    "eslint": "^10.12.0",
+    "globals": "^17.13.0",
+    "typescript": "^5.9.3",
+    "typescript-eslint": "^8.71.1",
+    "vitest": "^4.1.11",
+    "wrangler": "^4.149.0"
+  }
+}

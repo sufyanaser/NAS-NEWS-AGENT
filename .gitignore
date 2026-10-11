@@ -35,3 +35,8 @@ Desktop.ini
 /NAS-Newsroom-Redesign.html
 /design-qa.md
 /prototype/NAS-Newsroom-Redesign2.html
+
+# Test artifacts & local Worker secrets
+playwright-report/
+test-results/
+.dev.vars

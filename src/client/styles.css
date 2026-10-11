@@ -1,0 +1,123 @@
+/* NAS Newsroom — first vertical slice styles. Tokens taken from prototype/index.html (visual baseline). */
+:root {
+  --bg-canvas: #F3F5F8; --bg-surface: #FFFFFF; --bg-subtle: #F8FAFC; --bg-muted: #EEF2F6;
+  --bg-sidebar: #0F172A; --bg-sidebar-hover: #1E293B; --bg-sidebar-active: #1D4ED8;
+  --text-primary: #0F172A; --text-secondary: #334155; --text-muted: #64748B;
+  --text-on-dark: #F8FAFC; --text-on-dark-muted: #94A3B8;
+  --border-subtle: #E2E8F0; --border-strong: #CBD5E1; --border-focus: #2563EB;
+  --brand: #1D4ED8; --brand-hover: #1E40AF; --brand-soft: #EFF6FF;
+  --draft-bg: #F1F5F9; --draft-text: #475569; --draft-border: #CBD5E1;
+  --warn-bg: #FFFBEB; --warn-text: #B45309; --warn-border: #FDE68A;
+  --danger-bg: #FEF2F2; --danger-text: #B91C1C; --danger-border: #FECACA;
+  --ok-bg: #ECFDF5; --ok-text: #047857; --ok-border: #A7F3D0;
+  --font: 'IBM Plex Sans Arabic', 'Segoe UI', Tahoma, system-ui, -apple-system, sans-serif;
+  --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  --r-sm: 6px; --r-md: 8px; --r-lg: 12px;
+  --shadow: 0 1px 3px rgba(15,23,42,.05), 0 1px 2px rgba(15,23,42,.03);
+}
+*, *::before, *::after { box-sizing: border-box; }
+html, body { margin: 0; min-height: 100vh; background: var(--bg-canvas); color: var(--text-primary);
+  font-family: var(--font); font-size: 15px; line-height: 1.6; -webkit-font-smoothing: antialiased; }
+body { overflow-x: hidden; }
+button, input, select, textarea { font: inherit; color: inherit; }
+button { cursor: pointer; }
+[hidden] { display: none !important; }
+.boot { padding: 48px; text-align: center; color: var(--text-muted); }
+.ltr { direction: ltr; text-align: left; }
+
+/* ---- Shell ---- */
+.shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+.sidebar { background: var(--bg-sidebar); color: var(--text-on-dark); padding: 20px 14px; display: flex;
+  flex-direction: column; gap: 6px; position: sticky; top: 0; height: 100vh; }
+.brand { font-weight: 700; font-size: 16px; padding: 4px 10px 16px; letter-spacing: .2px; }
+.brand small { display: block; font-weight: 400; font-size: 11.5px; color: var(--text-on-dark-muted); margin-top: 2px; }
+.nav-item { display: flex; align-items: center; gap: 8px; padding: 9px 12px; border-radius: var(--r-md); border: 0;
+  background: transparent; color: var(--text-on-dark-muted); text-align: right; width: 100%; text-decoration: none; }
+.nav-item:hover { background: var(--bg-sidebar-hover); color: var(--text-on-dark); }
+.nav-item.active { background: var(--bg-sidebar-active); color: #fff; }
+.sidebar .spacer { flex: 1; }
+.user-line { font-size: 12px; color: var(--text-on-dark-muted); padding: 0 12px 6px; overflow-wrap: anywhere; }
+.main { padding: 24px; min-width: 0; }
+.page { max-width: 880px; margin: 0 auto; display: flex; flex-direction: column; gap: 18px; }
+
+/* ---- Cards & text ---- */
+.card { background: var(--bg-surface); border: 1px solid var(--border-subtle); border-radius: var(--r-lg);
+  box-shadow: var(--shadow); padding: 20px; }
+.card-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; margin-bottom: 16px; flex-wrap: wrap; }
+.card-title { margin: 0; font-size: 18px; font-weight: 700; }
+.card-sub { margin: 2px 0 0; color: var(--text-muted); font-size: 13.5px; }
+
+/* ---- Fields ---- */
+.field { display: flex; flex-direction: column; gap: 5px; min-width: 0; }
+.label { font-size: 13px; font-weight: 600; color: var(--text-secondary); display: flex; gap: 8px; flex-wrap: wrap; align-items: baseline; }
+.hint { font-size: 12px; font-weight: 400; color: var(--text-muted); }
+.input, .select, .textarea { width: 100%; border: 1px solid var(--border-strong); background: #fff; border-radius: var(--r-md);
+  padding: 9px 12px; }
+.input:focus, .select:focus, .textarea:focus { outline: 2px solid var(--border-focus); outline-offset: 0; border-color: var(--border-focus); }
+.textarea { min-height: 280px; resize: vertical; line-height: 1.8; }
+.grid-meta { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 260px)); gap: 14px; margin: 14px 0; }
+.stack { display: flex; flex-direction: column; gap: 14px; }
+
+/* ---- Buttons ---- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; padding: 9px 16px; border-radius: var(--r-md);
+  border: 1px solid var(--border-strong); background: #fff; font-weight: 600; }
+.btn:hover { background: var(--bg-muted); }
+.btn:focus-visible { outline: 2px solid var(--border-focus); outline-offset: 2px; }
+.btn-primary { background: var(--brand); border-color: var(--brand); color: #fff; }
+.btn-primary:hover { background: var(--brand-hover); }
+.btn[disabled] { opacity: .55; cursor: not-allowed; }
+.btn-sm { padding: 5px 11px; font-size: 13px; }
+
+/* ---- Save status + alerts ---- */
+.save-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: space-between; margin-top: 16px;
+  padding-top: 14px; border-top: 1px solid var(--border-subtle); }
+.save-state { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; padding: 4px 12px; border-radius: 999px;
+  border: 1px solid var(--draft-border); background: var(--draft-bg); color: var(--draft-text); }
+.save-state[data-state="saving"] { background: var(--brand-soft); color: var(--brand); border-color: #BFDBFE; }
+.save-state[data-state="saved"] { background: var(--ok-bg); color: var(--ok-text); border-color: var(--ok-border); }
+.save-state[data-state="failed"] { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-border); }
+.alert { border-radius: var(--r-md); padding: 10px 14px; font-size: 13.5px; border: 1px solid; }
+.alert-danger { background: var(--danger-bg); color: var(--danger-text); border-color: var(--danger-border); }
+.alert-info { background: var(--brand-soft); color: var(--brand); border-color: #BFDBFE; }
+.alert-warn { background: var(--warn-bg); color: var(--warn-text); border-color: var(--warn-border); }
+.note { font-size: 12.5px; color: var(--text-muted); }
+
+/* ---- Draft list ---- */
+.draft-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.draft-item { display: block; text-decoration: none; color: inherit; border: 1px solid var(--border-subtle); border-radius: var(--r-md);
+  padding: 10px 14px; background: var(--bg-subtle); }
+.draft-item:hover { border-color: var(--border-focus); background: var(--brand-soft); }
+.draft-title { font-weight: 600; }
+.draft-preview { color: var(--text-muted); font-size: 13px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.draft-meta { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--text-muted); margin-top: 2px; }
+.badge { display: inline-block; padding: 1px 9px; border-radius: 999px; font-size: 12px; border: 1px solid var(--draft-border);
+  background: var(--draft-bg); color: var(--draft-text); }
+
+/* ---- Login ---- */
+.login-wrap { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 20px; }
+.login-box { width: 100%; max-width: 380px; }
+.login-brand { text-align: center; margin-bottom: 18px; }
+.login-badge { display: inline-flex; gap: 8px; font-size: 12px; font-weight: 700; padding: 3px 12px; border-radius: 999px;
+  background: var(--bg-sidebar); color: var(--text-on-dark); letter-spacing: .6px; }
+.login-brand h1 { font-size: 22px; margin: 12px 0 2px; }
+.login-brand p { margin: 0; color: var(--text-muted); font-size: 13.5px; }
+
+/* ---- Mobile: same journey, stacked ---- */
+@media (max-width: 760px) {
+  .shell { grid-template-columns: 1fr; }
+  .sidebar { position: static; height: auto; flex-direction: row; flex-wrap: wrap; align-items: center; padding: 10px 12px; gap: 4px; }
+  .brand { padding: 0 8px 0 0; flex: 1 1 100%; }
+  .brand small { display: none; }
+  .sidebar .spacer { display: none; }
+  .nav-item { width: auto; padding: 7px 12px; }
+  .user-line { display: none; }
+  .main { padding: 14px; }
+  .card { padding: 14px; }
+  .grid-meta { grid-template-columns: 1fr; }
+  .textarea { min-height: 220px; }
+  .save-bar { flex-direction: column; align-items: stretch; }
+  .save-bar .btn { width: 100%; }
+}
+
+.stack-row { display: flex; gap: 8px; flex-wrap: wrap; }
+@media (max-width: 760px) { .stack-row { flex-direction: column; } }

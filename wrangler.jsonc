@@ -1,0 +1,26 @@
+// wrangler.jsonc — LOCAL DEVELOPMENT ONLY. Do not `wrangler deploy` from this file.
+// Production deployment is a separate approved phase (CLAUDE.md rules 5 & 8).
+// The D1 database_id below is a placeholder: no Cloudflare resource has been created.
+// Production Host (planned, not deployed): https://nr.nasfm.info
+{
+  "name": "nas-newsroom",
+  "compatibility_date": "2026-10-11",
+  "main": "./src/worker.ts",
+  "assets": {
+    "directory": "./dist/client/",
+    "binding": "ASSETS",
+    "not_found_handling": "single-page-application",
+    "run_worker_first": ["/api/*"]
+  },
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "nas-newsroom-db",
+      "database_id": "00000000-0000-0000-0000-000000000000",
+      "migrations_dir": "migrations"
+    }
+  ],
+  "vars": {
+    "ALLOWED_ORIGIN": "https://nr.nasfm.info"
+  }
+}
