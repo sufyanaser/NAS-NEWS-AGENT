@@ -5,8 +5,8 @@
 - **اسم المشروع:** NAS Newsroom (منصة ناس للتحرير الإخباري)
 - **المستودع الرسمي:** `https://github.com/sufyanaser/NAS-NEWS-AGENT`
 - **المجلد المحلي:** `H:\Projects\NAS-NEWS-AGENT`
-- **الدومين المعتمد:** `nasfm.info` (المسجّل: GoDaddy — إدارة DNS والحماية والنشر: Cloudflare)
-- **الهدف الإنتاجي المستقبلي:** `https://nasfm.info`
+- **الدومين المعتمد:** `nasfm.info` للموقع العام لإذاعة NAS FM (المسجّل: GoDaddy — إدارة DNS والحماية والنشر: Cloudflare)
+- **الهدف الإنتاجي المستقبلي لتطبيق التحرير:** `https://nr.nasfm.info` (معتمد للتخطيط فقط، غير منشور)
 
 ---
 

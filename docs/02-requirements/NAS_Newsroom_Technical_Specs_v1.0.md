@@ -3,6 +3,7 @@
 **الحالة:** مسودة مراجعة (بعد معالجة ملاحظات Red Team الداخلية)
 **الإصدار:** 1.0
 **التاريخ:** 11 أكتوبر 2026
+**سجل التعديلات (دون تغيير الإصدار):** 2026-10-11 — حُسم عنوان النشر: `nr.nasfm.info` (القسم 15.1) بدل الاقتراح السابق `newsroom.nasfm.info`؛ وُضّحت قواعد الكوكي Host-only وHSTS وفحص Origin (§5.3، §12.1، §12.3) وفُصل عنوان Staging عن الإنتاج (§15.2). لا تغيير في بقية القرارات.
 **المرجع الملزم:** `NAS_Newsroom_Decision_Paper.md` (v1.0، معتمدة)، `NAS_Newsroom_Deployment_Decision_v1.0.md`، `NAS_Newsroom_Scenarios_v1.0.md`، `NAS_Newsroom_Wireframe_v0.2.md`، `prototype/index.html` (Baseline التفاعلي المعتمد)
 **الحدود الملزمة لهذه الوثيقة:** MVP 1.0 فقط. لا توسيع نطاق. لا برمجة Frontend/Backend فعلية في هذه المرحلة. لا إنشاء موارد Cloudflare. لا تعديل DNS. لا نشر إنتاجي.
 
@@ -67,7 +68,7 @@
 
 ```
 المتصفح (محرر واحد)
-   │  HTTPS فقط (nasfm.info أو subdomain — قرار معلّق، انظر 15.1)
+   │  HTTPS فقط (https://nr.nasfm.info — محسوم، انظر 15.1)
    ▼
 Cloudflare Edge (TLS, WAF أساسي, Rate Limiting)
    ▼
@@ -278,6 +279,7 @@ PBKDF2-SHA256 عبر Web Crypto API الأصلي في Workers (`crypto.subtle.de
 
 - عند تسجيل الدخول: إنشاء Token عشوائي 32 بايت، تخزين `SHA-256(token)` فقط في `sessions.token_hash`، إرسال Token الخام كـCookie:
   `Set-Cookie: nas_session=<token>; HttpOnly; Secure; SameSite=Strict; Path=/; Max-Age=43200`
+  (Host-only: **بلا `Domain`** إطلاقاً — لا `Domain=.nasfm.info` — فيُرسَل الكوكي إلى `nr.nasfm.info` وحده ولا يصل إلى الموقع العام `nasfm.info`)
 - **Idle expiry:** 12 ساعة تُحدَّث (`last_seen_at`) مع كل طلب API ناجح.
 - **Absolute expiry:** 7 أيام من `created_at` بلا استثناء، حتى مع نشاط متواصل (يفرض إعادة دخول دورية).
 - **Logout حقيقي:** حذف صف `sessions` فعلياً (ليس فقط مسح الكوكي من المتصفح) — هذا يسد ثغرة إعادة استخدام Token مسروق بعد تسجيل الخروج الظاهري.
@@ -511,7 +513,7 @@ interface AIProvider {
 
 ### 12.1 النقل
 
-HTTPS فقط، مفروض من Cloudflare Edge (HSTS header: `Strict-Transport-Security: max-age=31536000`). لا استثناء HTTP حتى للتحويل.
+HTTPS فقط، مفروض من Cloudflare Edge (HSTS header على `nr.nasfm.info`: `Strict-Transport-Security: max-age=31536000` — **دون `includeSubDomains`** ودون تفعيل HSTS تلقائي على نطاق الجذر `nasfm.info`). لا استثناء HTTP حتى للتحويل.
 
 ### 12.2 الجلسة والكوكي
 
@@ -519,7 +521,7 @@ HTTPS فقط، مفروض من Cloudflare Edge (HSTS header: `Strict-Transport-S
 
 ### 12.3 CSRF (طبقة ثانية فوق SameSite)
 
-كل طلب غير-GET يتطلب Header `X-NAS-Client: 1`. طلب Cross-Site بسيط (مثل `<form>` من موقع خارجي) لا يمكنه إضافة Header مخصص دون CORS Preflight، والخادم لا يُفعِّل CORS لأي Origin خارجي أصلاً (`Access-Control-Allow-Origin` غير مضبوط إطلاقاً — التطبيق أحادي-Origin بالكامل بفضل بنية Single Worker في القسم 1).
+كل طلب غير-GET يتطلب Header `X-NAS-Client: 1`. طلب Cross-Site بسيط (مثل `<form>` من موقع خارجي) لا يمكنه إضافة Header مخصص دون CORS Preflight، والخادم لا يُفعِّل CORS لأي Origin خارجي أصلاً (`Access-Control-Allow-Origin` غير مضبوط إطلاقاً — التطبيق أحادي-Origin بالكامل بفضل بنية Single Worker في القسم 1). **عند التنفيذ** يتحقق الخادم أيضاً من ترويسة `Origin` للطلبات المعدِّلة للحالة، ويرفض (`403 forbidden`) أي قيمة لا تساوي `https://nr.nasfm.info` (مع استثناء بيئة التطوير/Staging المعتمدة صراحةً لاحقاً).
 
 ### 12.4 Rate Limiting (Cloudflare `ratelimit` binding — GA)
 
@@ -574,21 +576,33 @@ HTTPS فقط، مفروض من Cloudflare Edge (HSTS header: `Strict-Transport-S
 
 ## 15. Deployment Architecture
 
-### 15.1 قرار معلَّق يحتاج موافقة Sufyan قبل أي برمجة (Subdomain vs Path)
+### 15.1 عنوان النشر — قرار محسوم (2026-10-11)
 
-ورقة القرار تستهدف `https://nasfm.info` كعنوان إنتاج عام للإذاعة، لكنها لا تحدد ما إذا كانت أداة التحرير الداخلية (أداة محرر واحد، ليست موجَّهة للجمهور) ستُنشَر على:
+**القرار: Subdomain مخصَّص `nr.nasfm.info`.** حلّ نهائياً محل اقتراح `newsroom.nasfm.info`، واستُبعد خيار المسار `nasfm.info/newsroom`. الحالة: Approved for planning, not deployed (انظر سجل القرار في `NAS_Newsroom_Deployment_Decision_v1.0.md`).
 
-- **(أ)** Subdomain مخصَّص، مثل `newsroom.nasfm.info` — **مُوصى به**: يفصل التطبيق الداخلي عن أي موقع عام مستقبلي على `nasfm.info` نفسه، DNS Record بسيط (`CNAME` إلى Worker Route)، لا تعارض Routing.
-- **(ب)** مسار تحت الدومين الرئيسي، مثل `nasfm.info/newsroom` — يتطلب أن يكون Worker موجود على نفس Zone الجذرية ويتشارك التوجيه مع أي محتوى عام آخر لاحقاً (تعقيد توجيه إضافي إن وُجد موقع عام مستقل لاحقاً).
+| العنصر | القيمة |
+|---|---|
+| Production Host | `nr.nasfm.info` |
+| Production Origin | `https://nr.nasfm.info` |
+| Public Website Origin (لا يتغير) | `https://nasfm.info` |
+| API Base Path | `/api` |
+| API Origin | `https://nr.nasfm.info/api` |
+| Authentication Cookie | `nas_session` — `HttpOnly; Secure; SameSite=Strict; Path=/` |
 
-**هذا قرار جوهري يحتاج موافقتك قبل أي ربط Cloudflare فعلي** (ممنوع في هذه المرحلة أصلاً وفق تعليماتك). التوصية الفنية: الخيار (أ).
+قواعد ملزمة مترتبة على القرار:
+
+- **كوكي Host-only:** لا يُضاف `Domain=.nasfm.info` أبداً، فتبقى جلسة المحرر محصورة في `nr.nasfm.info` ولا تُشارك مع الموقع العام أو أي نطاق فرعي آخر.
+- **Same-Origin:** الواجهة والـAPI على Origin واحد (`https://nr.nasfm.info`)، فلا حاجة إلى CORS. لا يُفعَّل Cross-Origin Access دون متطلب موثق.
+- **HSTS:** `max-age=31536000` على `nr.nasfm.info` فقط، **دون `includeSubDomains`** ودون تفعيل أي HSTS تلقائي على نطاق الجذر `nasfm.info` الخاص بالموقع العام.
+- **Routing:** ربط Worker بالمضيف `nr.nasfm.info` (Custom Domain أو Route) لا بالجذر؛ لا يمسّ الموقع العام.
+- **DNS:** حالة تفويض Nameservers من GoDaddy إلى Cloudflare **غير مثبتة** ولا تُفترض؛ لا تغيير DNS ولا ربط Cloudflare قبل مرحلة النشر المستقلة.
 
 ### 15.2 البيئات
 
 بيئتان منفصلتان بالكامل (D1 database منفصلة + Worker منفصل لكل بيئة)، **لا يُنفَّذ أي منهما الآن**:
 
-- **Staging:** `nas-newsroom-staging` على Subdomain منفصل (مثل `newsroom-staging.nasfm.info` أو Workers.dev الافتراضي أثناء التطوير المبكر) — تُستخدَم فيها عينة الـ30 خبراً (المرحلة 5) وكل اختبار قبل الإنتاج.
-- **Production:** `nas-newsroom` على الدومين النهائي المقرَّر (القسم 15.1) — لا يُربَط ولا يُنشَر قبل اجتياز معايير القبول كاملة (القسم 14) وفق `CLAUDE.md` القاعدة 5.
+- **Staging:** `nas-newsroom-staging` — عنوان Staging **غير معتمد ولم يُفعَّل بعد**؛ يمكن استخدام `workers.dev` الافتراضي أثناء التطوير، وأي نطاق فرعي مخصص لـStaging يحتاج قراراً مستقلاً. تُستخدَم فيه عينة الـ30 خبراً (المرحلة 5) وكل اختبار قبل الإنتاج، ويبقى منفصلاً بالكامل عن Production.
+- **Production:** `nas-newsroom` على `https://nr.nasfm.info` (القسم 15.1) — لا يُربَط ولا يُنشَر قبل اجتياز معايير القبول كاملة (القسم 14) والاعتماد اليدوي للإصدار وفق `CLAUDE.md` القاعدة 5. Production لا يُنشَر تلقائياً من فرع `develop`؛ الإصدار يمرّ عبر `main` بقرار صريح.
 
 ### 15.3 قرار معلَّق آخر: مزوّد الموديل الفعلي وسياسة الاحتفاظ بالبيانات
 
@@ -622,7 +636,7 @@ HTTPS فقط، مفروض من Cloudflare Edge (HSTS header: `Strict-Transport-S
 
 ## ملخص قرارات تحتاج موافقتك قبل بدء البرمجة الفعلية
 
-1. **Subdomain vs Path** لاستضافة أداة التحرير (القسم 15.1) — التوصية: `newsroom.nasfm.info`.
+1. ~~**Subdomain vs Path** لاستضافة أداة التحرير (القسم 15.1)~~ — **محسوم (2026-10-11):** `nr.nasfm.info`، انظر القسم 15.1 وسجل القرار في `NAS_Newsroom_Deployment_Decision_v1.0.md`.
 2. **مزوّد الموديل النهائي وسياسة الاحتفاظ بالبيانات** (القسم 15.3) — يجب توثيقه كخطوة منفصلة قبل اختبار الـ30 خبراً، وليس بعده.
 3. **D1 Location Hint** (`eeur` مرجَّحة، القسم 4.2) — افتراض يحتاج قياس Latency فعلي، لا قرار نهائي.
 4. **عدم وجود "سحب الاعتماد" (Un-approve) في MVP** (القسم 6.2) — إن كانت هذه حاجة فعلية متوقعة قريباً، يجب تسجيلها الآن في قائمة لاحقة بوعي، لا اكتشافها متأخراً أثناء البرمجة.
